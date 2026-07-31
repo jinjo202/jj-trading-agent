@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { SnapshotKind } from './types.ts'
+import type { SnapshotKind, UniverseRow } from './types.ts'
 
 let client: SupabaseClient | null = null
 
@@ -25,4 +25,22 @@ export async function upsertSnapshots(
     .from('market_snapshots')
     .upsert(rows, { onConflict: 'date,kind' })
   if (error) throw new Error(`market_snapshots upsert 실패: ${error.message}`)
+}
+
+export async function upsertUniverse(rows: UniverseRow[]): Promise<void> {
+  // Supabase는 한 번에 큰 배열도 받지만 500행씩 끊어 타임아웃을 피한다.
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await db()
+      .from('universe')
+      .upsert(rows.slice(i, i + 500), { onConflict: 'ticker,market' })
+    if (error) throw new Error(`universe upsert 실패: ${error.message}`)
+  }
+}
+
+export async function readUniverse(sectors?: string[]): Promise<UniverseRow[]> {
+  let q = db().from('universe').select('ticker,market,name,sector,active').eq('active', true)
+  if (sectors && sectors.length > 0) q = q.in('sector', sectors)
+  const { data, error } = await q
+  if (error) throw new Error(`universe 읽기 실패: ${error.message}`)
+  return (data ?? []) as UniverseRow[]
 }

@@ -7,7 +7,8 @@
     "test": "node --test",
     "typecheck": "tsc --noEmit",
     "collect": "node --env-file=.env src/bin/collect.ts",
-    "smoke": "node --env-file=.env src/sources/smoke.ts"
+    "smoke": "node --env-file=.env src/sources/smoke.ts",
+    "universe": "node --env-file=.env src/bin/universe.ts"
   },
   "dependencies": {
     "yahoo-finance2": "^4.0.0",

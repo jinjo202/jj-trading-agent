@@ -75,3 +75,11 @@ export type NewsItem = {
   date: string | null   // ISO. pubDate 파싱 실패 시 null
   source: string        // 'yahoo:AAPL', 'yonhap' 등 출처 식별자
 }
+
+export type UniverseRow = {
+  ticker: string
+  market: 'KR' | 'US'
+  name: string
+  sector: string | null
+  active: boolean
+}

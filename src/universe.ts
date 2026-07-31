@@ -1,0 +1,127 @@
+import { fetchFundamentals } from './sources/yahoo.ts'
+import type { UniverseRow } from './types.ts'
+
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
+
+// 섹터 어휘는 Yahoo `summaryProfile.sector`로 통일한다.
+// 한국 종목은 Yahoo가 직접 이 어휘로 주고, 미국은 GICS라서 매핑이 필요하다.
+export const GICS_TO_YAHOO_SECTOR: Record<string, string> = {
+  'Information Technology': 'Technology',
+  'Financials': 'Financial Services',
+  'Health Care': 'Healthcare',
+  'Consumer Discretionary': 'Consumer Cyclical',
+  'Consumer Staples': 'Consumer Defensive',
+  'Communication Services': 'Communication Services',
+  'Industrials': 'Industrials',
+  'Energy': 'Energy',
+  'Utilities': 'Utilities',
+  'Materials': 'Basic Materials',
+  'Real Estate': 'Real Estate',
+}
+
+// P1의 SECTOR_ETFS와 같은 11개 ETF. 섹터 ETF 상대모멘텀을 종목 섹터와 잇는 다리.
+export const SECTOR_BY_ETF: Record<string, string> = {
+  XLK: 'Technology',
+  XLF: 'Financial Services',
+  XLE: 'Energy',
+  XLV: 'Healthcare',
+  XLI: 'Industrials',
+  XLY: 'Consumer Cyclical',
+  XLP: 'Consumer Defensive',
+  XLU: 'Utilities',
+  XLB: 'Basic Materials',
+  XLRE: 'Real Estate',
+  XLC: 'Communication Services',
+}
+
+// 따옴표로 감싼 필드 안의 쉼표를 존중하는 최소 CSV 분해기.
+function splitCsvLine(line: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let quoted = false
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]
+    if (c === '"') {
+      if (quoted && line[i + 1] === '"') { cur += '"'; i++ }
+      else quoted = !quoted
+    } else if (c === ',' && !quoted) {
+      out.push(cur); cur = ''
+    } else cur += c
+  }
+  out.push(cur)
+  return out
+}
+
+export function parseSp500Csv(csv: string): UniverseRow[] {
+  const lines = csv.trim().split(/\r?\n/)
+  const header = splitCsvLine(lines[0])
+  const iSym = header.indexOf('Symbol')
+  const iName = header.indexOf('Security')
+  const iSector = header.indexOf('GICS Sector')
+  const rows: UniverseRow[] = []
+  for (const line of lines.slice(1)) {
+    const f = splitCsvLine(line)
+    const sym = f[iSym]?.trim()
+    if (!sym) continue
+    rows.push({
+      ticker: sym.replace(/\./g, '-'), // BRK.B -> BRK-B (Yahoo 표기)
+      market: 'US',
+      name: f[iName]?.trim() ?? sym,
+      sector: GICS_TO_YAHOO_SECTOR[f[iSector]?.trim()] ?? null,
+      active: true,
+    })
+  }
+  return rows
+}
+
+export function parseKospi200Page(html: string): string[] {
+  const codes = html.match(/code=(\d{6})/g) ?? []
+  return [...new Set(codes.map((c) => c.slice(5)))]
+}
+
+async function fetchKospi200Codes(): Promise<string[]> {
+  const all = new Set<string>()
+  // ponytail: 페이지당 종목 수가 바뀔 수 있어 고정 페이지 수 대신 빈 페이지가 나올 때까지 돈다.
+  // 실측(2026-07-31): 페이지당 10종목 → 20페이지. 안전상 30페이지에서 강제 종료.
+  for (let page = 1; page <= 30; page++) {
+    const res = await fetch(
+      `https://finance.naver.com/sise/entryJongmok.naver?&page=${page}`,
+      { headers: { 'user-agent': BROWSER_UA, referer: 'https://finance.naver.com/' } },
+    )
+    if (!res.ok) throw new Error(`KOSPI200 page ${page} HTTP ${res.status}`)
+    const codes = parseKospi200Page(await res.text())
+    if (codes.length === 0) break
+    for (const c of codes) all.add(c)
+  }
+  return [...all]
+}
+
+export async function buildUniverse(): Promise<UniverseRow[]> {
+  const res = await fetch(
+    'https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv',
+    { headers: { 'user-agent': BROWSER_UA } },
+  )
+  if (!res.ok) throw new Error(`S&P500 CSV HTTP ${res.status}`)
+  const us = parseSp500Csv(await res.text())
+
+  // 한국은 이름·섹터가 없으므로 종목당 quoteSummary를 한 번씩 부른다.
+  // 분기 1회 실행이라 200회 순차 호출을 감수한다.
+  const kr: UniverseRow[] = []
+  for (const code of await fetchKospi200Codes()) {
+    const ticker = `${code}.KS`
+    try {
+      const f = await fetchFundamentals(ticker)
+      kr.push({
+        ticker,
+        market: 'KR',
+        name: f.name ?? code,
+        sector: f.sector,
+        active: true,
+      })
+    } catch (e) {
+      console.error(`유니버스 ${ticker} 조회 실패: ${(e as Error).message}`)
+    }
+  }
+  return [...us, ...kr]
+}
