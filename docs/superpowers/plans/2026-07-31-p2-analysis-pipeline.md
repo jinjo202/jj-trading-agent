@@ -172,6 +172,28 @@ test('parseRss는 pubDate를 ISO로 정규화하고 실패 시 null', () => {
     's',
   )
   assert.equal(noDate[0].date, null)
+
+  const badDate = parseRss(
+    `<rss><channel><item><title>x</title><link>http://e.com/a</link><pubDate>어제쯤</pubDate></item></channel></rss>`,
+    's',
+  )
+  assert.equal(badDate[0].date, null, '파싱 불가한 pubDate는 null이지 "Invalid Date"가 아니다')
+})
+
+test('parseRss는 숫자 엔티티도 디코드한다', () => {
+  const xml = `<rss><channel><item>
+    <title>Apple&#8217;s Q3 &#x2014; chips &amp; margins</title>
+    <link>http://e.com/a</link>
+  </item></channel></rss>`
+  assert.equal(parseRss(xml, 's')[0].title, 'Apple’s Q3 — chips & margins')
+})
+
+test('parseRss는 self-closing atom link의 href를 쓴다', () => {
+  const xml = `<rss><channel><item>
+    <title>기사</title>
+    <link rel="alternate" type="text/html" href="https://e.com/x"/>
+  </item></channel></rss>`
+  assert.equal(parseRss(xml, 's')[0].url, 'https://e.com/x')
 })
 
 test('parseRss는 source를 모든 항목에 붙인다', () => {
@@ -214,18 +236,36 @@ const BROWSER_UA =
 
 const ENTITIES: Record<string, string> = {
   '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': "'", '&#39;': "'",
+  '&nbsp;': ' ',
+}
+
+// 뉴스 제목에는 &#8217;(오른쪽 작은따옴표), &#x2014;(em dash) 같은 숫자 엔티티가 흔하다.
+// 디코드하지 않으면 그 문자열이 그대로 LLM 프롬프트에 들어간다.
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&(amp|lt|gt|quot|apos|nbsp|#39);/g, (m) => ENTITIES[m] ?? m)
+    .replace(/&#(\d+);/g, (_m, d: string) => String.fromCodePoint(Number(d)))
+    .replace(/&#[xX]([0-9a-fA-F]+);/g, (_m, h: string) => String.fromCodePoint(parseInt(h, 16)))
 }
 
 // CDATA를 벗기고 XML 엔티티를 디코드한다.
 function decode(raw: string): string {
   const cdata = raw.match(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/)
-  const text = cdata ? cdata[1] : raw
-  return text.replace(/&(amp|lt|gt|quot|apos|#39);/g, (m) => ENTITIES[m] ?? m).trim()
+  return decodeEntities(cdata ? cdata[1] : raw).trim()
 }
 
 function tag(block: string, name: string): string | null {
   const m = block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`))
   return m ? decode(m[1]) : null
+}
+
+// atom 스타일 `<link rel="alternate" href="..."/>`는 닫는 태그가 없어 tag()로 안 잡힌다.
+// 그대로 두면 해당 항목이 조용히 버려지므로 href를 폴백으로 읽는다.
+function link(block: string): string | null {
+  const paired = tag(block, 'link')
+  if (paired) return paired
+  const selfClosing = block.match(/<link[^>]*\shref=["']([^"']+)["'][^>]*\/?>/)
+  return selfClosing ? decode(selfClosing[1]) : null
 }
 
 // RSS 2.0만 다룬다. 두 피드 모두 <item> 기반이라 XML 파서 의존성이 필요 없다.
@@ -234,7 +274,7 @@ export function parseRss(xml: string, source: string): NewsItem[] {
   const items: NewsItem[] = []
   for (const b of blocks) {
     const title = tag(b, 'title')
-    const url = tag(b, 'link')
+    const url = link(b)
     if (!title || !url) continue
     const pub = tag(b, 'pubDate')
     const parsed = pub ? new Date(pub) : null
@@ -271,7 +311,7 @@ export function fetchKrEconomyNews(limit = 15): Promise<NewsItem[]> {
 npm test
 ```
 
-Expected: PASS — 기존 21개 + 뉴스 7개 = 28개
+Expected: PASS — 기존 21개 + 뉴스 9개 = 30개
 
 - [ ] **Step 6: 스모크 체크에 뉴스 추가**
 
@@ -567,7 +607,7 @@ export async function readUniverse(sectors?: string[]): Promise<UniverseRow[]> {
 npm test
 ```
 
-Expected: PASS — 28 + 유니버스 6 = 34개
+Expected: PASS — 30 + 유니버스 6 = 36개
 
 - [ ] **Step 7: CLI 작성**
 
@@ -950,7 +990,7 @@ export function computeTech(bars: Ohlcv[]): CandidateTech {
 npm test
 ```
 
-Expected: PASS — 34 + 스크리너 9 = 43개
+Expected: PASS — 36 + 스크리너 9 = 45개
 
 - [ ] **Step 6: 라이브 배치 시세 확인**
 
@@ -1398,7 +1438,7 @@ export function validateCompanyReport(v: unknown): CompanyReport {
 npm test
 ```
 
-Expected: PASS — 43 + 스키마 15 = 58개
+Expected: PASS — 45 + 스키마 15 = 60개
 
 - [ ] **Step 6: 타입체크 + 커밋**
 
@@ -1638,7 +1678,7 @@ export function buildBundleB(
 npm test
 ```
 
-Expected: PASS — 58 + prepare 5 = 63개
+Expected: PASS — 60 + prepare 5 = 65개
 
 - [ ] **Step 7: A단계 CLI**
 
@@ -1967,7 +2007,7 @@ export async function markRequestsFulfilled(
 npm test
 ```
 
-Expected: PASS — 63 + publish 5 = 68개
+Expected: PASS — 65 + publish 5 = 70개
 
 - [ ] **Step 6: CLI 작성**
 
@@ -2532,7 +2572,7 @@ Claude Code가 `prepare`가 만든 번들 파일을 읽고 agent를 순서대로
 npm test
 ```
 
-Expected: 68개 전부 통과
+Expected: 70개 전부 통과
 
 ```bash
 npm run typecheck
@@ -2586,7 +2626,7 @@ git commit -m "feat: add /daily slash command and correct design doc's news sour
 
 설계서 §13 P2 기준: **"실데이터 기반 `daily_verdicts` 1행 + `company_reports` 여러 행 생성"**
 
-- [ ] `npm test` — 68개 통과 (P1 21 + 뉴스 7 + 유니버스 6 + 스크리너 9 + 스키마 15 + prepare 5 + publish 5)
+- [ ] `npm test` — 70개 통과 (P1 21 + 뉴스 9 + 유니버스 6 + 스크리너 9 + 스키마 15 + prepare 5 + publish 5)
 - [ ] `npm run smoke` — 뉴스 2개 포함 전부 OK
 - [ ] `npm run universe` 후 `universe` 테이블에 KOSPI200 + S&P500이 Yahoo 섹터 어휘로 들어 있음
 - [ ] `/daily` 1회 실행으로 `daily_verdicts` 1행 + `agent_reports` 7행 + `company_reports` 1행 이상
