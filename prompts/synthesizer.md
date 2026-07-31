@@ -19,8 +19,11 @@
    그 사실을 `risk`에 적는다. `scores.fund`는 `roe`/`operatingMargin`/밸류에이션에서,
    `scores.news`는 `news` agent 결과와 `candidate_news`에서 나온다.
    **세 점수 모두 번들의 숫자를 근거로 해야 한다.** 근거 없이 숫자를 배정하지 않는다.
-5. `sectors`의 `etf` 필드는 `country_sector` agent가 쓴 ETF 티커와 일치해야 한다.
-6. `disclaimer`는 번들의 `disclaimer` 문자열을 그대로 복사한다.
+5. `countries`는 `country_sector` agent의 evidence 중 `country:KR`/`country:US` 라벨에서 그대로 가져온다.
+   라벨의 `KR`/`US`가 `code`, evidence의 `value`(`OW`/`N`/`UW`)가 `stance`가 된다.
+   `rationale`은 그 근거를 한 문장으로 요약한다. 최소 1개 — 비어 있으면 검증기가 거부한다.
+6. `sectors`의 `etf` 필드는 `country_sector` agent가 쓴 ETF 티커와 일치해야 한다.
+7. `disclaimer`는 번들의 `disclaimer` 문자열을 그대로 복사한다.
 
 ## 점수와 신호
 
