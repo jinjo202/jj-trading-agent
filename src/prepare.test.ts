@@ -85,7 +85,7 @@ test('owSectorsFrom은 country_sector가 없거나 OW가 없으면 빈 배열', 
 
 test('buildBundleB는 A단계 결과와 후보를 싣고 B단계 agent를 명시한다', () => {
   const a = buildBundleA(features, [], [])
-  const b = buildBundleB(a, [agent('macro')], [candidate('AAPL')], { AAPL: [news('x')] }, [])
+  const b = buildBundleB(a, [agent('macro')], [candidate('AAPL')], { AAPL: [news('x')] }, {}, [])
   assert.equal(b.date, a.date)
   assert.equal(b.candidates.length, 1)
   assert.equal(b.candidate_news.AAPL.length, 1)
@@ -95,6 +95,6 @@ test('buildBundleB는 A단계 결과와 후보를 싣고 B단계 agent를 명시
 test('buildBundleB의 company_reports_for는 요청 큐를 그대로 싣는다', () => {
   const a = buildBundleA(features, [], [])
   const req = [{ ticker: 'MSFT', market: 'US' as const }]
-  const b = buildBundleB(a, [agent('macro')], [candidate('AAPL')], {}, req)
+  const b = buildBundleB(a, [agent('macro')], [candidate('AAPL')], {}, {}, req)
   assert.deepEqual(b.company_reports_for, req)
 })

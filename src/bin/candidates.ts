@@ -5,9 +5,10 @@ import { fetchSymbolNews } from '../sources/news.ts'
 import {
   computeTech, fetchQuotes, filterByLiquidity, rankByMomentum, scoreCandidates,
 } from '../screener.ts'
+import { buildSnapshot } from '../snapshot.ts'
 import { buildBundleB, owSectorsFrom } from '../prepare.ts'
 import { validateAgentOutput } from '../schema.ts'
-import type { BundleA, Fundamentals, NewsItem } from '../types.ts'
+import type { BundleA, CompanyReport, Fundamentals, NewsItem, Ohlcv } from '../types.ts'
 
 const date = process.argv[2]
 if (!date) {
@@ -51,10 +52,13 @@ try {
     throw new Error('유동성/모멘텀 필터를 통과한 후보가 없습니다. 스크리닝 조건을 확인하세요.')
   }
 
-  // 확정된 12종목만 일봉을 받아 기술적 지표를 코드가 계산한다.
+  // 확정된 12종목만 일봉을 받아 기술적 지표를 코드가 계산한다. 봉은 스냅샷 조립에도 쓴다.
+  const barsByTicker = new Map<string, Ohlcv[]>()
   for (const c of candidates) {
     try {
-      c.tech = computeTech(await fetchDaily(c.ticker))
+      const bars = await fetchDaily(c.ticker)
+      barsByTicker.set(c.ticker, bars)
+      c.tech = computeTech(bars)
     } catch (e) {
       console.error(`일봉 ${c.ticker} 실패: ${(e as Error).message}`)
     }
@@ -70,8 +74,40 @@ try {
     }
   }
 
+  // 섹터별 forwardPE 동료군 — per_pctile_in_sector 계산에 쓴다.
+  const peersBySector = new Map<string, (number | null)[]>()
+  for (const c of candidates) {
+    const key = c.sector ?? ''
+    const arr = peersBySector.get(key) ?? []
+    arr.push(funds.get(c.ticker)?.forwardPE ?? null)
+    peersBySector.set(key, arr)
+  }
+
+  const snapshots: Record<string, CompanyReport['snapshot']> = {}
+  for (const c of candidates) {
+    const bars = barsByTicker.get(c.ticker)
+    const f = funds.get(c.ticker)
+    if (!bars || !f) continue
+    const snap = buildSnapshot(bars, f, peersBySector.get(c.sector ?? '') ?? [])
+    if (snap) snapshots[c.ticker] = snap
+    else console.error(`스냅샷 ${c.ticker} 생성 실패 — 데이터 부족 (기업 리포트에서 제외됨)`)
+  }
+
   const requested = (await readOpenReportRequests(5)).map((r) => ({ ticker: r.ticker, market: r.market }))
-  const bundle = buildBundleB(bundleA, agents, candidates, news, requested)
+  for (const r of requested) {
+    if (snapshots[r.ticker]) continue
+    try {
+      const bars = await fetchDaily(r.ticker)
+      const f = await fetchFundamentals(r.ticker)
+      const snap = buildSnapshot(bars, f, [])
+      if (snap) snapshots[r.ticker] = snap
+      else console.error(`스냅샷 ${r.ticker} 생성 실패 — 데이터 부족 (요청 리포트에서 제외됨)`)
+    } catch (e) {
+      console.error(`요청 종목 ${r.ticker} 조회 실패: ${(e as Error).message}`)
+    }
+  }
+
+  const bundle = buildBundleB(bundleA, agents, candidates, news, snapshots, requested)
   await writeFile(`runs/${date}/bundle-b.json`, JSON.stringify(bundle, null, 2))
   console.log(
     `B단계 번들: runs/${date}/bundle-b.json (후보 ${candidates.length}, 요청 리포트 ${requested.length})`,

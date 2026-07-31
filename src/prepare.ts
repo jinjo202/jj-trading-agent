@@ -1,4 +1,6 @@
-import type { AgentOutput, BundleA, BundleB, Candidate, FeatureSet, NewsItem } from './types.ts'
+import type {
+  AgentOutput, BundleA, BundleB, Candidate, CompanyReport, FeatureSet, NewsItem,
+} from './types.ts'
 import { SECTOR_BY_ETF } from './universe.ts'
 
 const KNOWN_SECTORS = Object.values(SECTOR_BY_ETF)
@@ -47,6 +49,7 @@ export function buildBundleB(
   agents: AgentOutput[],
   candidates: Candidate[],
   news: Record<string, NewsItem[]>,
+  snapshots: Record<string, CompanyReport['snapshot']>,
   requested: { ticker: string; market: 'KR' | 'US' }[],
 ): BundleB {
   return {
@@ -55,6 +58,7 @@ export function buildBundleB(
     agents_a: agents,
     candidates,
     candidate_news: news,
+    company_snapshots: snapshots,
     company_reports_for: requested,
     agents_to_run: ['fundamental', 'counter', 'synthesizer', 'company_report'],
     disclaimer: DISCLAIMER,

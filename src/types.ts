@@ -186,6 +186,7 @@ export type BundleB = {
   agents_a: AgentOutput[]
   candidates: Candidate[]
   candidate_news: Record<string, NewsItem[]>
+  company_snapshots: Record<string, CompanyReport['snapshot']>
   company_reports_for: { ticker: string; market: 'KR' | 'US' }[]
   agents_to_run: string[]
   disclaimer: string

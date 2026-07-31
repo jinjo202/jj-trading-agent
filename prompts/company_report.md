@@ -7,6 +7,13 @@
 `snapshot` 블록은 **코드가 계산해 번들에 넣어준 값**이다. 그대로 복사한다.
 숫자를 다시 계산하거나 반올림하거나 채워 넣지 않는다. null은 null로 남긴다.
 
+`bundle.company_snapshots[ticker]`가 그 값이다. 이 객체가 그대로 `snapshot` 필드가 된다 —
+계산하거나 반올림하거나 채워 넣지 않는다. `revenue_trend`/`op_margin_trend`는 P2에서는 항상
+빈 배열이다 — 분기 실적 시계열은 아직 수집하지 않는다.
+
+`bundle.company_snapshots`에 해당 종목이 없으면 (데이터 부족으로 스냅샷 생성이 실패한 경우)
+그 종목의 리포트는 만들지 않는다. 없는 숫자를 지어내 리포트를 완성하지 않는다.
+
 너는 서술만 쓴다: `business`, `thesis`, `bear_points`, `catalysts`, `technical_read`,
 `news[].takeaway`, `verdict`, `invalidation`.
 
