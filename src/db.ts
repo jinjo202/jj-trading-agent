@@ -17,9 +17,12 @@ export function kstDate(): string {
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
 }
 
-export async function upsertSnapshot(kind: SnapshotKind, date: string, payload: unknown): Promise<void> {
+// 세 스냅샷(prices/macro/features)을 한 번의 upsert로 기록해 일부만 커밋되는 상태를 막는다.
+export async function upsertSnapshots(
+  rows: { kind: SnapshotKind; date: string; payload: unknown }[],
+): Promise<void> {
   const { error } = await db()
     .from('market_snapshots')
-    .upsert({ date, kind, payload }, { onConflict: 'date,kind' })
-  if (error) throw new Error(`market_snapshots upsert 실패 (${kind}): ${error.message}`)
+    .upsert(rows, { onConflict: 'date,kind' })
+  if (error) throw new Error(`market_snapshots upsert 실패: ${error.message}`)
 }

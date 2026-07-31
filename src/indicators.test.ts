@@ -59,8 +59,16 @@ test('momentum12_1은 t-252 대비 t-21 수익률', () => {
 })
 
 test('week52Position: 고가 = 1, 저가 = 0', () => {
-  const bars = [bar(50, 50, 50), bar(150, 150, 150), bar(150, 150, 150)]
+  // 최소 200봉 가드를 만족시키기 위해 저가 1봉 + 고가 199봉으로 구성.
+  const bars = [bar(50, 50, 50), ...Array.from({ length: 199 }, () => bar(150, 150, 150))]
   assert.equal(week52Position(bars), 1)
+})
+
+test('week52Position: 200봉 미만이면 null', () => {
+  // high !== low로 구성해, 가드가 없다면 high===low null 분기가 아니라
+  // 실제 포지션 값이 계산되어 버릴 짧은 시계열.
+  const bars = Array.from({ length: 10 }, (_, i) => bar(100 + i, 100 + i, 100 + i))
+  assert.equal(week52Position(bars), null)
 })
 
 test('distFromSma는 SMA 대비 퍼센트', () => {
@@ -81,4 +89,9 @@ test('pctRank는 null을 제외하고 0-100 백분위', () => {
   assert.equal(pctRank([10, 20, 30, 40, 50], 30), 50)
   assert.equal(pctRank([10, null, 30, null, 50], 50), 100)
   assert.equal(pctRank([null, null], 5), null)
+})
+
+test('pctRank는 value가 분포 밖이어도 0-100으로 클램프된다', () => {
+  assert.equal(pctRank([10, 20, 30], 40), 100)
+  assert.equal(pctRank([10, 20, 30], 5), 0)
 })

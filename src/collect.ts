@@ -5,7 +5,7 @@ import {
 import { fetchDaily } from './sources/yahoo.ts'
 import { fetchForeignRatio, fetchNaverDaily } from './sources/naver.ts'
 import { fetchFredSeries, hasFredKey } from './sources/fred.ts'
-import { kstDate, upsertSnapshot } from './db.ts'
+import { kstDate, upsertSnapshots } from './db.ts'
 import type { AssetFeature, FeatureSet, MacroBlock, Ohlcv } from './types.ts'
 
 export const SYMBOLS: Record<string, string> = {
@@ -32,6 +32,8 @@ export const SECTOR_ETFS: Record<string, string> = {
 // 한국 지수는 Yahoo가 실패하면 네이버로 폴백한다.
 const KR_FALLBACK: Record<string, string> = { '^KS11': 'KOSPI', '^KQ11': 'KOSDAQ' }
 
+const round4 = (n: number): number => Math.round(n * 10000) / 10000
+
 export async function collectPrices(): Promise<Record<string, Ohlcv[]>> {
   const symbols = [...Object.keys(SYMBOLS), ...Object.keys(SECTOR_ETFS)]
   const out: Record<string, Ohlcv[]> = {}
@@ -48,8 +50,13 @@ export async function collectPrices(): Promise<Record<string, Ohlcv[]>> {
         continue
       }
       try {
-        out[s] = await fetchNaverDaily(fallback)
-        console.error(`${s}는 네이버 폴백 사용`)
+        const bars = await fetchNaverDaily(fallback)
+        if (bars.length > 0) {
+          out[s] = bars
+          console.error(`${s}는 네이버 폴백 사용`)
+        } else {
+          console.error(`price fetch 실패 ${s} (폴백도 빈 시계열)`)
+        }
       } catch (e2) {
         console.error(`price fetch 실패 ${s} (폴백도 실패): ${(e2 as Error).message}`)
       }
@@ -80,25 +87,24 @@ export async function collectMacro(): Promise<MacroBlock> {
     return empty
   }
   const start = new Date(Date.now() - 800 * 24 * 3600 * 1000).toISOString().slice(0, 10)
-  try {
-    const [dgs2, dgs10, dgs3mo, cpi, core, unrate, hy] = await Promise.all([
-      fetchFredSeries('DGS2', start),
-      fetchFredSeries('DGS10', start),
-      fetchFredSeries('DGS3MO', start),
-      fetchFredSeries('CPIAUCSL', start),
-      fetchFredSeries('CPILFESL', start),
-      fetchFredSeries('UNRATE', start),
-      fetchFredSeries('BAMLH0A0HYM2', start),
-    ])
-    return {
-      available: true,
-      dgs2: last(dgs2), dgs10: last(dgs10), dgs3mo: last(dgs3mo),
-      cpiYoY: yoy(cpi), coreCpiYoY: yoy(core),
-      unrate: last(unrate), hySpread: last(hy),
-    }
-  } catch (e) {
-    console.error(`FRED 수집 실패: ${(e as Error).message}`)
-    return empty
+  const [dgs2, dgs10, dgs3mo, cpi, core, unrate, hy] = await Promise.allSettled([
+    fetchFredSeries('DGS2', start),
+    fetchFredSeries('DGS10', start),
+    fetchFredSeries('DGS3MO', start),
+    fetchFredSeries('CPIAUCSL', start),
+    fetchFredSeries('CPILFESL', start),
+    fetchFredSeries('UNRATE', start),
+    fetchFredSeries('BAMLH0A0HYM2', start),
+  ])
+  const results = [dgs2, dgs10, dgs3mo, cpi, core, unrate, hy]
+  for (const r of results) if (r.status === 'rejected') console.error(`FRED 시리즈 수집 실패: ${(r.reason as Error).message}`)
+  const value = <T>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfilled' ? r.value : null)
+  const anyOk = results.some((r) => r.status === 'fulfilled')
+  return {
+    available: anyOk,
+    dgs2: last(value(dgs2) ?? []), dgs10: last(value(dgs10) ?? []), dgs3mo: last(value(dgs3mo) ?? []),
+    cpiYoY: yoy(value(cpi) ?? []), coreCpiYoY: yoy(value(core) ?? []),
+    unrate: last(value(unrate) ?? []), hySpread: last(value(hy) ?? []),
   }
 }
 
@@ -131,7 +137,14 @@ export function buildFeatures(
   const missing: string[] = []
   const expected = [...Object.keys(SYMBOLS), ...Object.keys(SECTOR_ETFS)]
   for (const s of expected) if (!prices[s] || prices[s].length === 0) missing.push(s)
-  if (!macro.available) missing.push('fred')
+  if (!macro.available) {
+    missing.push('fred')
+  } else {
+    const macroFields: (keyof MacroBlock)[] = [
+      'dgs2', 'dgs10', 'dgs3mo', 'cpiYoY', 'coreCpiYoY', 'unrate', 'hySpread',
+    ]
+    for (const field of macroFields) if (macro[field] === null) missing.push(`fred:${field}`)
+  }
   if (foreignRatioSamsung === null) missing.push('naver:foreignRatio')
 
   const assets: Record<string, AssetFeature> = {}
@@ -201,15 +214,27 @@ export async function runCollect(): Promise<void> {
     console.error(`외국인소진율 수집 실패: ${(e as Error).message}`)
   }
 
-  // 원시 시계열은 마지막 260봉만 저장한다. 200일선 계산에 충분하고 payload가 작다.
+  // 저장용 시계열은 마지막 260봉만 남기고 OHLC를 소수 4자리로 반올림한다.
+  // 260봉은 수집분의 대부분이라 트림만으로는 약 10%만 줄고(903,548B -> 816,556B 실측),
+  // 반올림이 지수 종가의 거짓 정밀도(예: 7437.6298828125)를 없애 564,707B까지 추가로 줄인다.
+  // 리텐션/프루닝은 의도적으로 만들지 않았다 — 500MB 무료 티어까지 아직 여유가 있다.
+  // buildFeatures는 이 트림/반올림과 무관하게 원본 정밀도의 전체 시계열을 그대로 받는다.
   const trimmed = Object.fromEntries(
-    Object.entries(prices).map(([s, bars]) => [s, bars.slice(-260)]),
+    Object.entries(prices).map(([s, bars]) => [
+      s,
+      bars.slice(-260).map((b) => ({
+        ...b,
+        open: round4(b.open), high: round4(b.high), low: round4(b.low), close: round4(b.close),
+      })),
+    ]),
   )
-  await upsertSnapshot('prices', date, trimmed)
-  await upsertSnapshot('macro', date, macro)
 
   const features = buildFeatures(prices, macro, date, foreignRatio)
-  await upsertSnapshot('features', date, features)
+  await upsertSnapshots([
+    { kind: 'prices', date, payload: trimmed },
+    { kind: 'macro', date, payload: macro },
+    { kind: 'features', date, payload: features },
+  ])
 
   console.log(
     `수집 완료 ${date}: 심볼 ${Object.keys(prices).length}개, 매크로 ${macro.available ? 'OK' : '없음'}, 결측 ${features.missing.length}건`,

@@ -8,6 +8,8 @@ const checks: [string, () => Promise<unknown>][] = [
   ['yahoo fundamentals AAPL', async () => (await fetchFundamentals('AAPL')).sector],
   ['yahoo fundamentals 005930.KS', async () => (await fetchFundamentals('005930.KS')).roe],
   ['naver daily 005930', async () => (await fetchNaverDaily('005930', 30)).length],
+  ['naver daily KOSPI', async () => (await fetchNaverDaily('KOSPI', 30)).length],
+  ['naver daily KOSDAQ', async () => (await fetchNaverDaily('KOSDAQ', 30)).length],
   ['naver foreign ratio 005930', async () => await fetchForeignRatio('005930')],
   ['fred DGS10', async () => (await fetchFredSeries('DGS10', '2026-01-01')).at(-1)],
 ]

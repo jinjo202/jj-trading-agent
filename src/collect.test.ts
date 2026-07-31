@@ -4,6 +4,8 @@ import { buildFeatures } from './collect.ts'
 import type { MacroBlock, Ohlcv } from './types.ts'
 
 // 100에서 시작해 매일 +0.1씩 오르는 300봉. 상승 추세.
+// high/low를 종가와 같게 두어야 52주 밴드가 종가 범위와 일치하고
+// 상승 추세의 마지막 봉이 정확히 52주 고점(position 1)이 된다.
 function series(start: number, step: number, n = 300): Ohlcv[] {
   return Array.from({ length: n }, (_, i) => {
     const c = start + step * i
@@ -45,6 +47,15 @@ test('macro가 없으면 곡선도 null이고 missing에 남는다', () => {
   const f = buildFeatures({ '^GSPC': series(100, 0.1) }, empty)
   assert.equal(f.macro.curve2s10s, null)
   assert.ok(f.missing.includes('fred'))
+})
+
+test('macro가 일부만 채워지면 해당 필드만 missing에 fred:field로 기록된다', () => {
+  const partial: MacroBlock = { ...macro, dgs2: null }
+  const f = buildFeatures({ '^GSPC': series(100, 0.1) }, partial)
+  assert.ok(f.missing.includes('fred:dgs2'))
+  assert.ok(!f.missing.includes('fred'))
+  assert.equal(f.macro.curve2s10s, null)
+  assert.ok(f.macro.curve3m10y !== null)
 })
 
 test('VIX 기간구조는 VIX/VIX3M 비율', () => {

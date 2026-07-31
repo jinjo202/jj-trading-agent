@@ -38,7 +38,7 @@ export function rsi(values: number[], period = 14): number | null {
 }
 
 export function macd(values: number[]): { macd: number; signal: number; hist: number } | null {
-  if (values.length < 35) return null
+  if (values.length < 34) return null
   const line: number[] = []
   for (let i = 26; i <= values.length; i++) {
     const slice = values.slice(0, i)
@@ -82,6 +82,7 @@ export function momentum12_1(values: number[]): number | null {
 }
 
 export function week52Position(bars: Ohlcv[]): number | null {
+  if (bars.length < 200) return null
   const w = bars.slice(Math.max(0, bars.length - 252))
   if (w.length === 0) return null
   const high = Math.max(...w.map((b) => b.high))
@@ -118,5 +119,5 @@ export function pctRank(values: (number | null)[], value: number): number | null
   const v = clean(values)
   if (v.length < 2) return null
   const below = v.filter((x) => x < value).length
-  return (below / (v.length - 1)) * 100
+  return (Math.min(below, v.length - 1) / (v.length - 1)) * 100
 }
