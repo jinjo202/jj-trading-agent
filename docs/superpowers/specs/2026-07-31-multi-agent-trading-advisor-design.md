@@ -126,7 +126,7 @@ type AgentOutput = {
 | 2 | `allocation` | macro score + 지수 200일선 이격 + 실현변동성 + 12-1 모멘텀 | 권장 주식비중 % 범위 |
 | 3 | `country_sector` | KR vs US 상대강도·밸류에이션·원달러, 11개 섹터 ETF 상대모멘텀 | 국가/섹터 OW·N·UW 랭킹 |
 | 4 | `technical` | 지수 및 후보종목의 SMA(20/60/200), RSI, MACD, ATR, 52주 위치, 거래량 추세 | 추세·모멘텀 score |
-| 5 | `news` | 네이버 뉴스 MCP + US RSS 헤드라인 | 심리 score + 핵심 이벤트 3개 |
+| 5 | `news` | Yahoo 종목 RSS + 연합뉴스 경제 RSS + US 뉴스 RSS | 심리 score + 핵심 이벤트 3개 |
 | 6 | `fundamental` | `yahoo-finance2 quoteSummary`: 매출성장률, 영업이익률, ROE, 부채비율, forwardPE/PBR의 후보군 내 백분위 | 종목별 퀄리티/밸류 score |
 | 7 | `synthesizer` | 위 6개 리포트 전부 + 반대의견 | 최종 `DailyVerdict` |
 
