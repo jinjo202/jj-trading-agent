@@ -1648,7 +1648,7 @@ const agent = (name: string, extra: Partial<AgentOutput> = {}): AgentOutput => (
 const candidate = (ticker: string): Candidate => ({
   ticker, name: ticker, market: 'US', sector: 'Technology',
   turnover: 1e9, yearChangePct: 30, roe: 0.2, operatingMargin: 0.25,
-  forwardPE: 20, priceToBook: 5, score: 1.2,
+  forwardPE: 20, priceToBook: 5, score: 1.2, tech: null,
 })
 
 test('buildBundleA는 features와 뉴스를 담고 실행할 agent 5개를 명시한다', () => {
@@ -1675,6 +1675,17 @@ test('owSectorsFrom은 country_sector의 evidence에서 OW 섹터를 뽑는다',
 test('owSectorsFrom은 country_sector가 없거나 OW가 없으면 빈 배열', () => {
   assert.deepEqual(owSectorsFrom([agent('macro')]), [])
   assert.deepEqual(owSectorsFrom([agent('country_sector', { evidence: [{ label: 'sector:X', value: 'UW', source: 's' }] })]), [])
+})
+
+test('owSectorsFrom은 대소문자와 공백을 허용한다', () => {
+  const cs = agent('country_sector', {
+    evidence: [
+      { label: 'sector:Technology', value: 'ow', source: 'features.relative.sectors' },
+      { label: 'sector: Energy', value: 'OW ', source: 'features.relative.sectors' },
+      { label: 'sector:Utilities', value: 'Ow', source: 'features.relative.sectors' },
+    ],
+  })
+  assert.deepEqual(owSectorsFrom([cs]), ['Technology', 'Energy', 'Utilities'])
 })
 
 test('buildBundleB는 A단계 결과와 후보를 싣고 B단계 agent를 명시한다', () => {
@@ -1763,7 +1774,7 @@ export function buildBundleB(
 npm test
 ```
 
-Expected: PASS — 71 + prepare 5 = 76개
+Expected: PASS — 71 + prepare 6 = 77개
 
 - [ ] **Step 7: A단계 CLI**
 
@@ -2092,7 +2103,7 @@ export async function markRequestsFulfilled(
 npm test
 ```
 
-Expected: PASS — 76 + publish 5 = 81개
+Expected: PASS — 77 + publish 5 = 82개
 
 - [ ] **Step 6: CLI 작성**
 
@@ -2657,7 +2668,7 @@ Claude Code가 `prepare`가 만든 번들 파일을 읽고 agent를 순서대로
 npm test
 ```
 
-Expected: 81개 전부 통과
+Expected: 82개 전부 통과
 
 ```bash
 npm run typecheck
@@ -2711,7 +2722,7 @@ git commit -m "feat: add /daily slash command and correct design doc's news sour
 
 설계서 §13 P2 기준: **"실데이터 기반 `daily_verdicts` 1행 + `company_reports` 여러 행 생성"**
 
-- [ ] `npm test` — 81개 통과 (P1 21 + 뉴스 9 + 유니버스 6+5 + 스크리너 9 + 스키마 15+6 + prepare 5 + publish 5)
+- [ ] `npm test` — 82개 통과 (P1 21 + 뉴스 9 + 유니버스 6+5 + 스크리너 9 + 스키마 15+6 + prepare 5+1 + publish 5)
 - [ ] `npm run smoke` — 뉴스 2개 포함 전부 OK
 - [ ] `npm run universe` 후 `universe` 테이블에 KOSPI200 + S&P500이 Yahoo 섹터 어휘로 들어 있음
 - [ ] `/daily` 1회 실행으로 `daily_verdicts` 1행 + `agent_reports` 7행 + `company_reports` 1행 이상

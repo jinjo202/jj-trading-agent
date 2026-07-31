@@ -30,3 +30,5 @@ Task 4: review 1 — spec OK, all three load-bearing guarantees (evidence, count
 Task 4: minor (deferred): news[].date allows empty string; picks/catalysts have no min length. Both verbatim brief, neither load-bearing.
 Task 4: fix round 1/5 (1 addressed, 0 open; commits f4f0e4b..12b2f87). 6 CompanyReport tests added, each confirmed to fail if its underlying check were removed.
 Task 4: complete (commits e28b3dd..12b2f87, review clean, 71/71 tests)
+Task 5: implemented (commit a799814, 76/76 tests). Implementer caught candidate() test fixture missing required tech:null field (type error, no assertion change). Live news-fetch path verified: SPY 6 items, Yonhap 15 items.
+Task 5: review 1 — spec OK, owSectorsFrom hand-verified correct for mixed case/whitespace/empty; Important plan-mandated: no test actually exercises those cases the brief itself calls load-bearing. Ruling: fix. Plan file corrected (candidate() tech field + new case/whitespace test) at source.
