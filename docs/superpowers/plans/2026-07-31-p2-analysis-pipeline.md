@@ -2779,7 +2779,7 @@ const bar = (close: number, high = close, low = close): Ohlcv => ({
   date: 'd', open: close, high, low, close, volume: 1000,
 })
 
-// 253봉짜리 완만한 상승 추세. change_12m 계산에 필요한 최소 길이다.
+// 기본 260봉짜리 완만한 상승 추세. change_12m 계산에 필요한 최소(253봉)보다 넉넉하다.
 function series(start: number, step: number, n = 260): Ohlcv[] {
   return Array.from({ length: n }, (_, i) => bar(start + step * i))
 }
@@ -2792,11 +2792,19 @@ const funds = (over: Partial<Fundamentals> = {}): Fundamentals => ({
 
 test('buildSnapshot은 가격·변화율·52주 밴드를 봉에서 계산한다', () => {
   const bars = series(100, 0.5)
+  // 중간의 한 봉에만 종가와 다른 고가/저가를 줘서, high/low를 뒤바꾸면
+  // 이 테스트가 잡아내게 한다. 마지막 봉은 그대로 둬서 position=1은 유지된다.
+  const spikeIdx = bars.length - 50
+  bars[spikeIdx] = { ...bars[spikeIdx], high: bars[spikeIdx].close + 500, low: bars[spikeIdx].close - 500 }
+  const expectedHigh = Math.max(...bars.slice(-252).map((b) => b.high))
+  const expectedLow = Math.min(...bars.slice(-252).map((b) => b.low))
   const snap = buildSnapshot(bars, funds(), [10, 15, 20])!
   assert.ok(snap !== null)
   assert.equal(snap.price, bars.at(-1)!.close)
   assert.ok(snap.change_12m > 0, '상승 추세라 12개월 변화율이 양수')
-  assert.equal(snap.week52.position, 1, '상승 추세의 마지막 봉은 52주 고점')
+  assert.equal(snap.week52.position, (bars.at(-1)!.close - expectedLow) / (expectedHigh - expectedLow))
+  assert.equal(snap.week52.high, expectedHigh)
+  assert.equal(snap.week52.low, expectedLow)
   assert.equal(snap.market_cap, 1e12)
   assert.equal(snap.per, 15)
   assert.equal(snap.pbr, 2)
@@ -2806,7 +2814,7 @@ test('buildSnapshot은 가격·변화율·52주 밴드를 봉에서 계산한다
 })
 
 test('buildSnapshot은 253봉 미만이면 null — 지어내지 않고 건너뛴다', () => {
-  assert.equal(buildSnapshot(series(100, 0.5, 100), funds(), []), null)
+  assert.equal(buildSnapshot(series(100, 0.5, 252), funds(), []), null)
 })
 
 test('buildSnapshot은 marketCap이 null이면 null', () => {
@@ -2820,7 +2828,8 @@ test('buildSnapshot은 봉이 없으면 null', () => {
 test('per_pctile_in_sector는 동료군 forwardPE 대비 백분위, forwardPE가 null이면 null', () => {
   const bars = series(100, 0.5)
   const snap = buildSnapshot(bars, funds({ forwardPE: 20 }), [10, 15, 20, 25])!
-  assert.equal(snap.per_pctile_in_sector, 50) // 4개 중 2개가 20보다 작음 -> 2/3*100
+  // 4개 중 2개(10,15)가 20보다 작음. pctRank 분모는 v.length-1=3 -> 2/3*100 = 66.67
+  assert.ok(Math.abs(snap.per_pctile_in_sector! - 66.6666666) < 1e-4)
 
   const noPE = buildSnapshot(bars, funds({ forwardPE: null }), [10, 15, 20])!
   assert.equal(noPE.per_pctile_in_sector, null)
@@ -2930,12 +2939,16 @@ import type { BundleA, CompanyReport, Fundamentals, NewsItem, Ohlcv } from '../t
 
 ```ts
   // 섹터별 forwardPE 동료군 — per_pctile_in_sector 계산에 쓴다.
+  const MIN_SECTOR_PEERS = 5
+
+  // 섹터가 없는 종목은 동료군 계산에서 제외한다 — 섹터 불명 종목끼리를
+  // 서로의 "섹터 동료"로 묶으면 안 된다.
   const peersBySector = new Map<string, (number | null)[]>()
   for (const c of candidates) {
-    const key = c.sector ?? ''
-    const arr = peersBySector.get(key) ?? []
+    if (c.sector === null) continue
+    const arr = peersBySector.get(c.sector) ?? []
     arr.push(funds.get(c.ticker)?.forwardPE ?? null)
-    peersBySector.set(key, arr)
+    peersBySector.set(c.sector, arr)
   }
 
   const snapshots: Record<string, CompanyReport['snapshot']> = {}
@@ -2943,7 +2956,11 @@ import type { BundleA, CompanyReport, Fundamentals, NewsItem, Ohlcv } from '../t
     const bars = barsByTicker.get(c.ticker)
     const f = funds.get(c.ticker)
     if (!bars || !f) continue
-    const snap = buildSnapshot(bars, f, peersBySector.get(c.sector ?? '') ?? [])
+    // 후보 12개를 섹터별로 나누면 동료가 2-3개뿐인 경우가 흔하다. 표본이 5개
+    // 미만이면 백분위는 사실상 0 아니면 100뿐인 가짜 정밀도라 계산하지 않는다.
+    const peers = c.sector === null ? [] : peersBySector.get(c.sector) ?? []
+    const finitePeers = peers.filter((p): p is number => p !== null)
+    const snap = buildSnapshot(bars, f, finitePeers.length >= MIN_SECTOR_PEERS ? peers : [])
     if (snap) snapshots[c.ticker] = snap
     else console.error(`스냅샷 ${c.ticker} 생성 실패 — 데이터 부족 (기업 리포트에서 제외됨)`)
   }
