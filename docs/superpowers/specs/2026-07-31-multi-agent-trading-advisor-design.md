@@ -51,17 +51,27 @@
 
 | 소스 | 검증 결과 | 용도 | 키 |
 |---|---|---|---|
-| Yahoo Finance `query1/2.finance.yahoo.com/v8/finance/chart` | 200. 브라우저 User-Agent 필수(없으면 429). `005930.KS`가 KRW로 정상 반환 | 한·미 가격/차트/ETF 메인 | 불필요 |
-| Naver `api.finance.naver.com/siseJson.naver` | 200. 무키. OHLCV + **외국인소진율** | 한국 폴백 + 외국인 수급 | 불필요 |
-| SEC EDGAR XBRL `data.sec.gov/api/xbrl` | 200 | 미국 펀더멘털 | 불필요 (UA에 이메일 필요) |
-| DART OpenAPI `opendart.fss.or.kr` | 200 | 한국 펀더멘털·공시 | 무료 발급 |
+| `yahoo-finance2` v4 npm (`new YahooFinance()`) | **성공.** 쿠키/크럼을 내부 처리. `quoteSummary`로 AAPL `PBR 45.9 / fwdPE 34.5 / ROE 1.41 / D/E 79.5 / revG 16.6% / opMargin 32.3% / Technology`, 삼성전자 `005930.KS` `fwdPE 3.81 / ROE 18.9% / D/E 5.78 / revG 69.2% / opMargin 42.8% / Technology` | **한·미 가격 + 펀더멘털 메인** | 불필요 |
+| Yahoo `v8/finance/chart` raw | 200. 브라우저 User-Agent 필수(없으면 429). OHLCV + 52주 고저 + longName | 지수·ETF 시계열 (라이브러리 우회 경로) | 불필요 |
+| Naver `api.finance.naver.com/siseJson.naver` | 200. 무키. OHLCV + **외국인소진율** | 한국 폴백 + **외국인 수급** (Yahoo에 없는 값) | 불필요 |
 | FRED `api.stlouisfed.org` | 도달 확인 (400 = 키 없음) | 미국 매크로 | 무료 발급 |
-| 한국은행 ECOS | 미검증, P1에서 확인 | 한국 매크로 (기준금리·수출) | 무료 발급 |
 | 네이버 뉴스 (Claude Code MCP) | 세션에 연결됨 | 한국 뉴스 | MCP |
 | US 뉴스 RSS | — | 미국 뉴스 | 불필요 |
+| ~~Yahoo `v10/quoteSummary` raw curl~~ | `Invalid Crumb`. `v7/quote`도 `Unauthorized` | raw 호출 금지, 반드시 라이브러리 경유 | — |
 | ~~Stooq~~ | **차단.** JS proof-of-work 챌린지 | 사용하지 않음 | — |
+| DART OpenAPI / SEC EDGAR XBRL | 둘 다 200 도달 확인 | **P1 범위에서 제외.** 선택적 보강 | DART 무료 발급 |
+| 한국은행 ECOS | 미검증 | 선택적 보강 (한국 기준금리·수출) | 무료 발급 |
 
-시장 브레드스는 500개 종목을 매일 긁는 대신 ETF 프록시(RSP/SPY 비율 등)로 근사한다.
+**DART/SEC를 P1에서 뺀 이유**: 애초에 한국은 DART, 미국은 SEC로 펀더멘털을 나눠 가져올 계획이었다.
+그러려면 DART는 ZIP으로 배포되는 `corp_code` 매핑, SEC는 `company_tickers.json` CIK 매핑과 XBRL 태그
+정규화가 각각 필요하다. 실측 결과 `yahoo-finance2` 하나가 두 시장의 성장률·마진·ROE·부채비율·섹터를
+같은 형태로 반환하므로, 매핑 계층 두 개와 소스 두 개가 통째로 불필요해진다.
+DART/SEC는 원문 공시가 필요해질 때 보강한다.
+
+한국 PBR은 `priceToBook`이 비어 있는 경우가 확인되었다. 없으면 `null`로 두고 해당 지표를
+백분위 계산에서 제외한다. 결측을 0이나 추정치로 채우지 않는다.
+
+시장 브레드스는 500개 종목을 매일 긁는 대신 ETF 프록시(RSP/SPY 비율)로 근사한다.
 rate limit과 실행시간을 줄이는 의도적 단순화이며, 방향성은 동일하다.
 
 ## 5. 아키텍처 — 3개 프로세스
@@ -115,7 +125,7 @@ type AgentOutput = {
 | 3 | `country_sector` | KR vs US 상대강도·밸류에이션·원달러, 11개 섹터 ETF 상대모멘텀 | 국가/섹터 OW·N·UW 랭킹 |
 | 4 | `technical` | 지수 및 후보종목의 SMA(20/60/200), RSI, MACD, ATR, 52주 위치, 거래량 추세 | 추세·모멘텀 score |
 | 5 | `news` | 네이버 뉴스 MCP + US RSS 헤드라인 | 심리 score + 핵심 이벤트 3개 |
-| 6 | `fundamental` | DART/SEC: 매출·영업이익 성장률, 마진 추세, ROE, 부채비율, PER/PBR 섹터 내 백분위 | 종목별 퀄리티/밸류 score |
+| 6 | `fundamental` | `yahoo-finance2 quoteSummary`: 매출성장률, 영업이익률, ROE, 부채비율, forwardPE/PBR의 후보군 내 백분위 | 종목별 퀄리티/밸류 score |
 | 7 | `synthesizer` | 위 6개 리포트 전부 + 반대의견 | 최종 `DailyVerdict` |
 
 ### 6.3 반대의견 단계 (필수)
@@ -205,8 +215,11 @@ FinRobot의 Data-CoT → Concept-CoT → Thesis-CoT 순서를 그대로 적용�
 | 대상 | 시점 |
 |---|---|
 | 최종 top 5 종목 | 매일 자동 생성 |
-| 2단 스크리닝 후보 12개 | 매일 자동 생성 (이미 LLM이 평가한 대상이라 추가 호출이 적다) |
-| 그 밖의 유니버스 종목 | 웹에서 "리포트 요청" → `report_requests` 테이블에 큐잉 → 다음 `/daily` 실행에서 생성 |
+| 그 밖의 모든 유니버스 종목 (후보 12개 포함) | 웹에서 "리포트 요청" → `report_requests` 테이블에 큐잉 → 다음 `/daily` 실행에서 생성 |
+
+일일 LLM 호출 예산: 분석 agent 6 + 반대의견 1 + 종합 1 + 기업 리포트 5 = **13회**.
+후보 12개 전부에 리포트를 매일 만들면 20회를 넘어 실행시간이 길어지므로 요청 기반으로 돌린다.
+후보 12개는 이미 `technical`/`fundamental` agent가 배치로 평가하므로 점수는 대시보드에 나온다.
 
 캐시 7일. 7일 이내 리포트가 있으면 `snapshot`(코드 계산분)만 갱신하고 서술은 재사용한다.
 웹앱이 LLM을 호출하지 않으므로 즉시 생성은 불가능하다. 이는 비용 0원 제약의 직접적 결과이며,
