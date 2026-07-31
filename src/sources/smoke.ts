@@ -1,6 +1,7 @@
 import { fetchDaily, fetchFundamentals } from './yahoo.ts'
 import { fetchNaverDaily, fetchForeignRatio } from './naver.ts'
 import { fetchFredSeries } from './fred.ts'
+import { fetchKrEconomyNews, fetchSymbolNews } from './news.ts'
 
 const checks: [string, () => Promise<unknown>][] = [
   ['yahoo chart ^GSPC', async () => (await fetchDaily('^GSPC', 30)).length],
@@ -12,6 +13,8 @@ const checks: [string, () => Promise<unknown>][] = [
   ['naver daily KOSDAQ', async () => (await fetchNaverDaily('KOSDAQ', 30)).length],
   ['naver foreign ratio 005930', async () => await fetchForeignRatio('005930')],
   ['fred DGS10', async () => (await fetchFredSeries('DGS10', '2026-01-01')).at(-1)],
+  ['news yahoo 005930.KS', async () => (await fetchSymbolNews('005930.KS', 3)).length],
+  ['news yonhap economy', async () => (await fetchKrEconomyNews(3)).length],
 ]
 
 let failed = 0

@@ -68,3 +68,10 @@ export type FeatureSet = {
   foreignRatioSamsung: number | null
   missing: string[]               // 수집 실패한 심볼/시리즈. 다운스트림 agent가 flag로 쓴다
 }
+
+export type NewsItem = {
+  title: string
+  url: string
+  date: string | null   // ISO. pubDate 파싱 실패 시 null
+  source: string        // 'yahoo:AAPL', 'yonhap' 등 출처 식별자
+}
