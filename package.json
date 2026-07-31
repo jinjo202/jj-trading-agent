@@ -8,7 +8,9 @@
     "typecheck": "tsc --noEmit",
     "collect": "node --env-file=.env src/bin/collect.ts",
     "smoke": "node --env-file=.env src/sources/smoke.ts",
-    "universe": "node --env-file=.env src/bin/universe.ts"
+    "universe": "node --env-file=.env src/bin/universe.ts",
+    "prepare:bundle": "node --env-file=.env src/bin/prepare.ts",
+    "candidates": "node --env-file=.env src/bin/candidates.ts"
   },
   "dependencies": {
     "yahoo-finance2": "^4.0.0",

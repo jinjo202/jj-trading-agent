@@ -44,3 +44,30 @@ export async function readUniverse(sectors?: string[]): Promise<UniverseRow[]> {
   if (error) throw new Error(`universe 읽기 실패: ${error.message}`)
   return (data ?? []) as UniverseRow[]
 }
+
+export async function readLatestSnapshot(
+  kind: SnapshotKind,
+): Promise<{ date: string; payload: unknown } | null> {
+  const { data, error } = await db()
+    .from('market_snapshots')
+    .select('date,payload')
+    .eq('kind', kind)
+    .order('date', { ascending: false })
+    .limit(1)
+  if (error) throw new Error(`market_snapshots 읽기 실패 (${kind}): ${error.message}`)
+  const row = data?.[0]
+  return row ? { date: row.date as string, payload: row.payload } : null
+}
+
+export async function readOpenReportRequests(
+  limit = 5,
+): Promise<{ id: number; ticker: string; market: 'KR' | 'US' }[]> {
+  const { data, error } = await db()
+    .from('report_requests')
+    .select('id,ticker,market')
+    .is('fulfilled_at', null)
+    .order('requested_at', { ascending: true })
+    .limit(limit)
+  if (error) throw new Error(`report_requests 읽기 실패: ${error.message}`)
+  return (data ?? []) as { id: number; ticker: string; market: 'KR' | 'US' }[]
+}

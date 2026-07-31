@@ -171,3 +171,22 @@ export type CompanyReport = {
   invalidation: string[]
   disclaimer: string
 }
+
+export type BundleA = {
+  date: string
+  features: FeatureSet
+  news: { market: NewsItem[]; korea: NewsItem[] }
+  agents_to_run: string[]
+  disclaimer: string
+}
+
+export type BundleB = {
+  date: string
+  features: FeatureSet
+  agents_a: AgentOutput[]
+  candidates: Candidate[]
+  candidate_news: Record<string, NewsItem[]>
+  company_reports_for: { ticker: string; market: 'KR' | 'US' }[]
+  agents_to_run: string[]
+  disclaimer: string
+}
