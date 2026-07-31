@@ -114,7 +114,7 @@ ls "web" 2>/dev/null || echo "web/ 없음 — 새로 만든다"
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": { "@/*": ["./*"] }
@@ -123,6 +123,10 @@ ls "web" 2>/dev/null || echo "web/ 없음 — 새로 만든다"
   "exclude": ["node_modules"]
 }
 ```
+
+Next.js 16은 `npm run dev`/`build` 첫 실행 때 이 파일을 자체적으로 다시 써서
+`include`에 `.next/dev/types/**/*.ts`를 더하고 필요하면 다른 필드도 맞춘다.
+직접 만든 값과 달라져도 정상 동작이니 되돌리지 않는다.
 
 `web/next.config.ts`:
 
