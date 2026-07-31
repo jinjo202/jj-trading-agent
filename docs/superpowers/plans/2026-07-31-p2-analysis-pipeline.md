@@ -2664,3 +2664,19 @@ git commit -m "feat: add /daily slash command and correct design doc's news sour
 | 리포트 7일 캐시 | 웹이 없으므로 요청 큐가 아직 비어 있다. 캐시할 대상이 없다 | P3에서 웹이 요청을 넣기 시작하면 |
 | `published=true` 자동 전환 | 사람이 한 번 읽고 공개하는 것이 기본값이어야 한다 | 판단 품질이 안정되면 |
 | 반대의견 n라운드 토론 | 설계서가 이미 1패스로 압축하기로 결정했다 | 하지 않는다 |
+
+### Task 2 실행 중 확정된 최종 형태
+
+위 `fetchKospi200Codes` 코드 블록은 초안이다. 실제 구현은 루프를 `collectCodes`로 분리했다:
+
+```ts
+export async function collectCodes(
+  fetchPage: (page: number) => Promise<string[]>,
+  { maxPages = 30, minCodes = 150, retryDelayMs = 1000, pageDelayMs = 300 } = {},
+): Promise<string[]>
+```
+
+`fetchKospi200Codes`는 실제 fetch 클로저를 넘기는 얇은 래퍼다.
+분리한 이유는 가드(같은 페이지 재시도, 하한선, 캡, 에러 전파)를 네트워크 없이 테스트하기 위해서다.
+가드는 평소에 실행되지 않으므로, 테스트가 없으면 아무도 검증한 적 없는 안전장치가 된다.
+`src/universe.test.ts`에 5개 테스트가 이 네 가지 성질을 각각 덮는다.
