@@ -2118,17 +2118,23 @@ import { splitOutputs } from '../publish.ts'
 
 const date = process.argv[2]
 if (!date) {
-  console.error('사용법: npm run publish -- YYYY-MM-DD')
+  console.error('사용법: npm run publish:run -- YYYY-MM-DD')
   process.exit(1)
 }
 
 try {
   // A단계 agent 출력과 B단계 출력을 합쳐서 발행한다.
-  const a = JSON.parse(await readFile(`runs/${date}/agents-a.json`, 'utf8')) as unknown[]
+  const a = JSON.parse(await readFile(`runs/${date}/agents-a.json`, 'utf8')) as unknown
   const b = JSON.parse(await readFile(`runs/${date}/agents-b.json`, 'utf8')) as Record<string, unknown>
+  // 파일이 깨져서 배열이 아니면 조용히 []로 넘기지 않는다 — 그러면 agent 결과가
+  // 통째로 사라진 채 발행되고, 검증 단계는 그 사실을 알 기회조차 없다.
+  if (!Array.isArray(a)) throw new Error(`agents-${date}.json의 최상위가 배열이 아닙니다`)
+  if (b.agents !== undefined && !Array.isArray(b.agents)) {
+    throw new Error(`agents-b-${date}.json의 agents 필드가 배열이 아닙니다`)
+  }
   const merged = {
     ...b,
-    agents: [...(Array.isArray(a) ? a : []), ...(Array.isArray(b.agents) ? b.agents : [])],
+    agents: [...a, ...(Array.isArray(b.agents) ? b.agents : [])],
   }
 
   const { agents, verdict, reports } = splitOutputs(merged)
