@@ -139,7 +139,7 @@ export type Ohlcv = {
   high: number
   low: number
   close: number
-  volume: number
+  volume: number | null
 }
 
 export type Fundamentals = {
@@ -218,8 +218,8 @@ test('realizedVol: 가격이 일정하면 0', () => {
 })
 
 test('momentum12_1은 t-252 대비 t-21 수익률', () => {
-  // 253개 중 index 0 = 100, index 232(=252-20) = 150
-  const values = Array.from({ length: 253 }, (_, i) => (i === 0 ? 100 : i === 232 ? 150 : 1))
+  // length 253이면 t = index 252. t-252 = index 0, t-21 = index 231.
+  const values = Array.from({ length: 253 }, (_, i) => (i === 0 ? 100 : i === 231 ? 150 : 1))
   assert.ok(Math.abs(momentum12_1(values)! - 0.5) < 1e-9)
   assert.equal(momentum12_1([1, 2, 3]), null)
 })
@@ -230,11 +230,12 @@ test('week52Position: 고가 = 1, 저가 = 0', () => {
 })
 
 test('distFromSma는 SMA 대비 퍼센트', () => {
-  assert.equal(distFromSma([10, 10, 10, 20], 4), 0.6) // 20 / 12.5 - 1
+  // 20 / 12.5 - 1. IEEE 754에서 정확히 0.6이 아니므로 epsilon 비교
+  assert.ok(Math.abs(distFromSma([10, 10, 10, 20], 4)! - 0.6) < 1e-9)
 })
 
 test('pctChange는 lookback봉 전 대비 수익률', () => {
-  assert.equal(pctChange([100, 110], 1), 0.1)
+  assert.ok(Math.abs(pctChange([100, 110], 1)! - 0.1) < 1e-9)
   assert.equal(pctChange([100], 5), null)
 })
 
@@ -342,7 +343,7 @@ export function realizedVol(values: number[], period = 20): number | null {
 export function momentum12_1(values: number[]): number | null {
   if (values.length < 253) return null
   const start = values[values.length - 253]
-  const end = values[values.length - 21]
+  const end = values[values.length - 22]
   return start === 0 ? null : end / start - 1
 }
 
@@ -608,7 +609,7 @@ export async function fetchDaily(symbol: string, days = 420): Promise<Ohlcv[]> {
       high: q.high as number,
       low: q.low as number,
       close: q.close as number,
-      volume: q.volume ?? 0,
+      volume: q.volume ?? null,
     }))
 }
 
@@ -874,10 +875,12 @@ import { buildFeatures } from './collect.ts'
 import type { MacroBlock, Ohlcv } from './types.ts'
 
 // 100에서 시작해 매일 +0.1씩 오르는 300봉. 상승 추세.
+// high/low를 종가와 같게 두어야 52주 밴드가 종가 범위와 일치하고
+// 상승 추세의 마지막 봉이 정확히 52주 고점(position 1)이 된다.
 function series(start: number, step: number, n = 300): Ohlcv[] {
   return Array.from({ length: n }, (_, i) => {
     const c = start + step * i
-    return { date: `d${i}`, open: c, high: c + 1, low: c - 1, close: c, volume: 1000 }
+    return { date: `d${i}`, open: c, high: c, low: c, close: c, volume: 1000 }
   })
 }
 
@@ -1257,3 +1260,33 @@ git commit -m "feat: add collection orchestration, feature builder and CLI"
 | 종목 단위 `fetchFundamentals` 배치 수집 | 후보 12개를 정하는 스크리너가 P2에 있어야 무엇을 수집할지 정해진다 | P2 |
 | pg_cron 자동화 | 수집 모듈이 손으로 돌아가는 걸 먼저 확인해야 한다 | P4 |
 | 뉴스 수집 | `news` agent 입력이고 agent는 P2 | P2 |
+
+---
+
+## 실행 중 확정된 변경 (2026-07-31)
+
+이 계획서의 코드 블록은 실행 전 초안이다. 리뷰가 결함 3건을 잡아 계획서 본문을 고쳤고,
+최종 브랜치 리뷰가 5건을 더 잡아 코드에만 반영했다. **코드가 최종 기준이다.**
+
+계획서 본문과 실제 코드가 다른 지점:
+
+| 항목 | 계획서 | 최종 코드 | 이유 |
+|---|---|---|---|
+| `db.ts` 쓰기 함수 | `upsertSnapshot(kind, date, payload)` 3회 호출 | `upsertSnapshots(rows)` 1회 호출 | 3회 순차 쓰기 중간 실패 시 부분 스냅샷이 남음. 같은 코드량으로 원자적 |
+| `collectMacro` | `Promise.all` | `Promise.allSettled`, 시리즈별 독립 null, `available`는 1개라도 성공하면 true | 7개 중 1개 실패가 나머지 6개를 버리는 문제 |
+| `missing`의 매크로 표기 | `'fred'` 하나 | 블록 전체 실패면 `'fred'`, 부분 실패면 필드별 `'fred:dgs2'` 등 | 어느 매크로 입력이 없는지 agent가 알아야 함 |
+| `pctRank` | 클램프 없음 | `Math.min(below, v.length - 1)` | 배열에 없는 값을 넣으면 150 같은 백분위가 나옴 |
+| `week52Position` | 최소 봉 수 가드 없음 | `bars.length < 200`이면 null | 3봉으로 "52주 위치"를 계산하던 문제. P2의 신규상장 종목에서 터짐 |
+| `macd` 가드 | `< 35` | `< 34` | 34봉이면 signal 계산에 충분 |
+| `prices` 저장 payload | 260봉 트림만 | 260봉 트림 + OHLC 4자리 반올림 | 트림만으론 903KB→816KB(10%). 반올림까지 하면 565KB |
+| Naver 폴백 | 빈 결과 가드 없음 | Yahoo 분기와 동일하게 `bars.length > 0` 확인 | 빈 응답이 `[]`로 저장되고 완료 로그의 심볼 수가 부풀려짐 |
+| `smoke.ts` | 네이버 체크 1개(종목) | KOSPI·KOSDAQ 지수 체크 2개 추가 | 실제 폴백 경로가 커버되지 않았음 |
+| `.gitignore` | 2줄 | `node_modules/`, `.next/`, `.env*`, `!.env.example`, `.vercel`, `dist/` | 2줄 버전이 `.env.local`을 무시하지 않아 P3에서 키 커밋 위험 |
+
+리뷰가 잡은 계획서 자체의 결함 3건 (본문은 이미 수정됨):
+`momentum12_1`의 t-21 인덱스 off-by-one, `volume ?? 0`의 null 정책 위반,
+`series()` 픽스처의 high/low 패딩으로 `week52Position === 1`이 도달 불가였던 것.
+
+**P1 완료 기준은 아직 미충족**: `SUPABASE_SERVICE_ROLE_KEY`와 `FRED_API_KEY`가 비어 있어
+`market_snapshots`에 실제 행이 들어간 적이 없고 FRED가 데이터를 반환한 적이 없다.
+키가 채워지면 `npm run collect`를 두 번 돌리고 §14의 확인 쿼리를 실행하면 닫힌다.
