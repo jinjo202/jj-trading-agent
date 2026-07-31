@@ -14,3 +14,4 @@ Task 3: review 1 — spec compliant, verbatim brief code, null-before-destructur
 Task 3: minor (deferred): index-based keys for DriverCard/invalidation list (harmless, server-rendered once); ScoreGauge displays raw unclamped score number while gradient uses clamped value (latent, out of scope, verbatim brief).
 Task 3: complete (commits b6ebb90..835607d, review clean)
 NOTE: web/.env.local now exists on disk with real anon key (gitignored, not committed). Live build/dev verification is possible for all remaining tasks.
+Task 4: complete (commits a2d5631..2ccd6b1, review clean). No findings. Client/server split correct, chart reversed to oldest-first while list stays newest-first (correctly asymmetric), independent build re-run confirmed live against empty DB.
