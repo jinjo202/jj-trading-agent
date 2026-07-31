@@ -208,8 +208,17 @@ PC를 바꾸는 상황이라면 **CLI보다 GitHub 연동이 낫다.** 푸시할
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`는 **넣지 마라.** 웹앱은 읽기만 한다.
-6. Deploy
-7. Production Branch를 `master`로 둘지 `p3-web-dashboard`로 둘지 정한다. 지금 작업물은 `p3-web-dashboard`에 있다.
+6. **Production Branch 를 `p3-web-dashboard` 로 바꾼다** ← 이걸 안 하면 옛 코드가 배포된다.
+
+   Vercel 은 기본적으로 리포지토리의 default branch(`master`)를 프로덕션으로 삼는다.
+   그런데 `master`는 `bf6a30b`에 멈춰 있고 **대시보드 페이지가 하나도 없는 시점**이다.
+   P3의 모든 작업(`/`, `/history`, `/agents/[date]`, `/stock/...`)은 `p3-web-dashboard`에만 있다.
+   기본값으로 두면 빈 앱이 배포된다.
+
+   대안: `p3-web-dashboard`를 `master`에 머지하면 기본값 그대로 써도 된다.
+   브랜치는 테스트·타입체크·빌드가 전부 통과한 상태라 머지 가능하다.
+
+7. Deploy
 
 배포 직후 대시보드는 비어 있다. §3(1) 때문이며 정상이다. 파이프라인을 한 번 돌리면 채워진다.
 
@@ -287,8 +296,9 @@ supabase/migrations/0001_trading_agent_schema.sql
 
 **Vercel Root Directory는 `web`이다.** 리포지토리 루트에는 Next.js 앱이 없다.
 
-**`web/` 안에 별도 `package-lock.json`이 있다.** 빌드 시 Turbopack이 lockfile 2개를 감지했다는 경고를
-낸다. 동작에는 문제없다.
+**`web/` 안에 별도 `package-lock.json`이 있다.** lockfile이 2개라 Next가 workspace root를 저장소
+최상위로 추론했다. `web/next.config.ts`에 `outputFileTracingRoot`를 명시해서 해결했다.
+경고가 다시 보이면 이 설정이 지워졌는지 확인하라.
 
 ---
 
