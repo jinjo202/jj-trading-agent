@@ -22,3 +22,49 @@ export type Fundamentals = {
 }
 
 export type SnapshotKind = 'prices' | 'macro' | 'features'
+
+export type MacroBlock = {
+  available: boolean
+  dgs2: number | null
+  dgs10: number | null
+  dgs3mo: number | null
+  cpiYoY: number | null
+  coreCpiYoY: number | null
+  unrate: number | null
+  hySpread: number | null
+}
+
+export type AssetFeature = {
+  symbol: string
+  close: number
+  distSma20: number | null
+  distSma60: number | null
+  distSma200: number | null
+  rsi14: number | null
+  macdHist: number | null
+  atr14: number | null
+  realizedVol20: number | null
+  mom12_1: number | null
+  week52Position: number | null
+  ret1m: number | null
+  ret3m: number | null
+}
+
+export type FeatureSet = {
+  date: string
+  assets: Record<string, AssetFeature>
+  macro: MacroBlock & { curve2s10s: number | null; curve3m10y: number | null }
+  regime: {
+    vixLevel: number | null
+    vixTerm: number | null        // ^VIX / ^VIX3M. 1 초과 = 백워데이션(스트레스)
+    breadth: number | null        // RSP/SPY 비율의 60일 SMA 대비 이격
+    usdkrw: number | null
+    usdkrwChange20d: number | null
+  }
+  relative: {
+    krVsUs3m: number | null       // EWY 3개월 수익률 - SPY 3개월 수익률
+    sectors: { etf: string; rel3m: number | null }[]  // 각 섹터 ETF 3개월 수익률 - SPY
+  }
+  foreignRatioSamsung: number | null
+  missing: string[]               // 수집 실패한 심볼/시리즈. 다운스트림 agent가 flag로 쓴다
+}
