@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { SnapshotKind, UniverseRow } from './types.ts'
+import type { AgentOutput, CompanyReport, DailyVerdict, SnapshotKind, UniverseRow } from './types.ts'
 
 let client: SupabaseClient | null = null
 
@@ -70,4 +70,47 @@ export async function readOpenReportRequests(
     .limit(limit)
   if (error) throw new Error(`report_requests 읽기 실패: ${error.message}`)
   return (data ?? []) as { id: number; ticker: string; market: 'KR' | 'US' }[]
+}
+
+export async function writeAgentReports(date: string, agents: AgentOutput[]): Promise<void> {
+  if (agents.length === 0) return
+  const rows = agents.map((a) => ({ date, agent: a.agent, output: a }))
+  const { error } = await db().from('agent_reports').upsert(rows, { onConflict: 'date,agent' })
+  if (error) throw new Error(`agent_reports 쓰기 실패: ${error.message}`)
+}
+
+// published는 false로 둔다. 사람이 확인한 뒤 공개하는 것이 기본값이다.
+export async function writeDailyVerdict(verdict: DailyVerdict): Promise<void> {
+  const { error } = await db()
+    .from('daily_verdicts')
+    .upsert({ date: verdict.date, verdict, published: false }, { onConflict: 'date' })
+  if (error) throw new Error(`daily_verdicts 쓰기 실패: ${error.message}`)
+}
+
+export async function writeCompanyReports(reports: CompanyReport[]): Promise<void> {
+  if (reports.length === 0) return
+  const rows = reports.map((r) => ({
+    ticker: r.ticker,
+    market: r.market,
+    date: r.generated_at.slice(0, 10),
+    payload: r,
+  }))
+  const { error } = await db()
+    .from('company_reports')
+    .upsert(rows, { onConflict: 'ticker,market,date' })
+  if (error) throw new Error(`company_reports 쓰기 실패: ${error.message}`)
+}
+
+export async function markRequestsFulfilled(
+  pairs: { ticker: string; market: string }[],
+): Promise<void> {
+  for (const p of pairs) {
+    const { error } = await db()
+      .from('report_requests')
+      .update({ fulfilled_at: new Date().toISOString() })
+      .eq('ticker', p.ticker)
+      .eq('market', p.market)
+      .is('fulfilled_at', null)
+    if (error) throw new Error(`report_requests 갱신 실패 (${p.ticker}): ${error.message}`)
+  }
 }

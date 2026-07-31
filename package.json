@@ -10,7 +10,8 @@
     "smoke": "node --env-file=.env src/sources/smoke.ts",
     "universe": "node --env-file=.env src/bin/universe.ts",
     "prepare:bundle": "node --env-file=.env src/bin/prepare.ts",
-    "candidates": "node --env-file=.env src/bin/candidates.ts"
+    "candidates": "node --env-file=.env src/bin/candidates.ts",
+    "publish:run": "node --env-file=.env src/bin/publish.ts"
   },
   "dependencies": {
     "yahoo-finance2": "^4.0.0",
