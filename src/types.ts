@@ -83,3 +83,36 @@ export type UniverseRow = {
   sector: string | null
   active: boolean
 }
+
+export type QuoteRow = {
+  symbol: string
+  price: number | null
+  marketCap: number | null
+  avgVolume3m: number | null
+  yearChangePct: number | null
+  currency: string | null
+}
+
+export type Candidate = {
+  ticker: string
+  name: string
+  market: 'KR' | 'US'
+  sector: string | null
+  turnover: number | null        // price * avgVolume3m, 현지통화
+  yearChangePct: number | null
+  roe: number | null
+  operatingMargin: number | null
+  forwardPE: number | null
+  priceToBook: number | null
+  score: number                  // 모멘텀 z + 퀄리티 z 합
+  tech: CandidateTech | null     // 후보 확정 후 일봉으로 계산해 채운다
+}
+
+export type CandidateTech = {
+  distSma200: number | null
+  distSma60: number | null
+  rsi14: number | null
+  macdHist: number | null
+  week52Position: number | null
+  realizedVol20: number | null
+}
