@@ -80,19 +80,35 @@ export function parseKospi200Page(html: string): string[] {
   return [...new Set(codes.map((c) => c.slice(5)))]
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+// 실제 KOSPI200보다 한참 작으면 조용히 반쪽 유니버스를 넘기지 말고 에러로 알린다.
+const MIN_KOSPI200_CODES = 150
+
 async function fetchKospi200Codes(): Promise<string[]> {
   const all = new Set<string>()
   // ponytail: 페이지당 종목 수가 바뀔 수 있어 고정 페이지 수 대신 빈 페이지가 나올 때까지 돈다.
   // 실측(2026-07-31): 페이지당 10종목 → 20페이지. 안전상 30페이지에서 강제 종료.
+  // 빈 페이지 1번은 rate-limit/차단 페이지일 수 있어 믿지 않고, 연속 2번째 빈 페이지에서만 끝낸다.
+  let consecutiveEmpty = 0
   for (let page = 1; page <= 30; page++) {
+    if (page > 1) await sleep(300) // 연속 스크래핑처럼 보이지 않게 페이지 사이 지연
     const res = await fetch(
       `https://finance.naver.com/sise/entryJongmok.naver?&page=${page}`,
       { headers: { 'user-agent': BROWSER_UA, referer: 'https://finance.naver.com/' } },
     )
     if (!res.ok) throw new Error(`KOSPI200 page ${page} HTTP ${res.status}`)
     const codes = parseKospi200Page(await res.text())
-    if (codes.length === 0) break
+    if (codes.length === 0) {
+      consecutiveEmpty++
+      if (consecutiveEmpty >= 2) break
+      continue
+    }
+    consecutiveEmpty = 0
     for (const c of codes) all.add(c)
+  }
+  if (all.size < MIN_KOSPI200_CODES) {
+    throw new Error(`KOSPI200 코드 ${all.size}개만 수집됨 (최소 ${MIN_KOSPI200_CODES}개 필요) — Naver 응답 확인 필요`)
   }
   return [...all]
 }
