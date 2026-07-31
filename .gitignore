@@ -10,3 +10,7 @@ dist/
 runs/
 
 !web/.env.local.example
+
+# Next.js 가 생성하는 파일
+web/next-env.d.ts
+*.tsbuildinfo
