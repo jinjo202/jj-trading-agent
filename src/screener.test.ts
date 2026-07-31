@@ -21,11 +21,11 @@ const f = (roe: number | null, margin: number | null): Fundamentals => ({
 })
 
 test('유동성 필터는 시장별로 따로 자른다', () => {
-  // KRW 거래대금이 USD보다 압도적으로 크다. 한 줄로 세우면 US가 전멸한다.
+  // 전역 정렬로 자르면 상위 2개가 둘 다 KR이 된다. 시장별로 잘라야 KR 1 + US 1이 남는다.
   const rows = [u('A.KS', 'KR'), u('B.KS', 'KR'), u('C', 'US'), u('D', 'US')]
   const quotes = [
     q('A.KS', 100000, 1_000_000, 10, 'KRW'),  // 1e11
-    q('B.KS', 50000, 100_000, 10, 'KRW'),     // 5e9
+    q('B.KS', 50000, 1_000_000, 10, 'KRW'),   // 5e10  ← C보다 크다
     q('C', 300, 50_000_000, 10, 'USD'),       // 1.5e10
     q('D', 20, 100_000, 10, 'USD'),           // 2e6
   ]
