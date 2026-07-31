@@ -43,3 +43,5 @@ Task 6: parked — DB write functions (writeAgentReports/writeDailyVerdict/write
 Task 6: complete (commits 5f1f9b4..f2d978a, review clean, 82/82 tests)
 Task 7: implemented (commit 6f8505d). Docs-only task, no code touched. Implementer verified features.* paths / agent names / ETF table matched (report claimed "zero defects").
 Task 7: review 1 — reviewer independently re-derived all three checks (paths/names/ETF table all real) but caught what the implementer's verification missed: synthesizer.md never instructs the LLM to populate DailyVerdict.countries (schema requires min:1, no code-side helper exists — synthesizer is the only place this translation happens). Every real run would fail validation on countries. Ruling: fix, plan-mandated (brief's own text had the gap). Plan file corrected at source.
+Task 7: fix round 1/5 (1 addressed, 0 open; commits 6f8505d..41cbeb8). countries instruction added, field mapping (code/stance/rationale) confirmed against src/types.ts.
+Task 7: complete (commits 3e5164e..41cbeb8, review clean, docs-only)
