@@ -53,6 +53,17 @@ test('owSectorsFrom은 country_sector의 evidence에서 OW 섹터를 뽑는다',
   assert.deepEqual(owSectorsFrom([agent('macro'), cs]), ['Technology', 'Energy'])
 })
 
+test('owSectorsFrom은 대소문자와 공백을 허용한다', () => {
+  const cs = agent('country_sector', {
+    evidence: [
+      { label: 'sector:Technology', value: 'ow', source: 'features.relative.sectors' },
+      { label: 'sector: Energy', value: 'OW ', source: 'features.relative.sectors' },
+      { label: 'sector:Utilities', value: 'Ow', source: 'features.relative.sectors' },
+    ],
+  })
+  assert.deepEqual(owSectorsFrom([cs]), ['Technology', 'Energy', 'Utilities'])
+})
+
 test('owSectorsFrom은 country_sector가 없거나 OW가 없으면 빈 배열', () => {
   assert.deepEqual(owSectorsFrom([agent('macro')]), [])
   assert.deepEqual(owSectorsFrom([agent('country_sector', { evidence: [{ label: 'sector:X', value: 'UW', source: 's' }] })]), [])
