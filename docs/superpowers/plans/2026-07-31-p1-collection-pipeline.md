@@ -107,11 +107,16 @@
 }
 ```
 
-`.gitignore`:
+`.gitignore` — 이미 존재하면 **덮어쓰지 말고** 아래 항목이 다 있는지 확인만 한다.
+`.env`가 아니라 `.env*`여야 P3에서 Next.js가 쓰는 `.env.local`까지 무시된다.
 
 ```
-node_modules
-.env
+node_modules/
+.next/
+.env*
+!.env.example
+.vercel
+dist/
 ```
 
 `.env.example`:
