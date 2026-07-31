@@ -531,16 +531,36 @@ export function parseKospi200Page(html: string): string[] {
   return [...new Set(codes.map((c) => c.slice(5)))]
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+async function fetchPageCodes(page: number): Promise<string[]> {
+  const res = await fetch(
+    `https://finance.naver.com/sise/entryJongmok.naver?&page=${page}`,
+    { headers: { 'user-agent': BROWSER_UA, referer: 'https://finance.naver.com/' } },
+  )
+  if (!res.ok) throw new Error(`KOSPI200 page ${page} HTTP ${res.status}`)
+  return parseKospi200Page(await res.text())
+}
+
+// 페이지당 종목 수를 고정값으로 가정하지 않는다 — 실측 결과 페이지당 약 10종목이고,
+// 네이버가 언제든 바꿀 수 있다.
+// 다만 "빈 페이지 = 목록 끝"은 rate limit이나 차단 페이지와 구분되지 않는다.
+// 그래서 빈 페이지는 한 번 재시도하고, 최종 수집량이 비상식적으로 적으면 조용히 끝내지 않고 던진다.
+// 유니버스가 절반만 채워진 채로 통과하는 것이 이 함수의 가장 나쁜 실패다.
 async function fetchKospi200Codes(): Promise<string[]> {
   const all = new Set<string>()
-  // 페이지당 20종목, 200종목이면 10페이지. 11까지 돌아 마지막 페이지 누락을 막는다.
-  for (let page = 1; page <= 11; page++) {
-    const res = await fetch(
-      `https://finance.naver.com/sise/entryJongmok.naver?&page=${page}`,
-      { headers: { 'user-agent': BROWSER_UA, referer: 'https://finance.naver.com/' } },
-    )
-    if (!res.ok) throw new Error(`KOSPI200 page ${page} HTTP ${res.status}`)
-    for (const c of parseKospi200Page(await res.text())) all.add(c)
+  for (let page = 1; page <= 30; page++) {
+    let codes = await fetchPageCodes(page)
+    if (codes.length === 0) {
+      await sleep(1000)
+      codes = await fetchPageCodes(page)
+      if (codes.length === 0) break
+    }
+    for (const c of codes) all.add(c)
+    await sleep(300)
+  }
+  if (all.size < 150) {
+    throw new Error(`KOSPI200 구성종목이 ${all.size}개뿐입니다. 절반이 누락된 채로 진행하지 않습니다`)
   }
   return [...all]
 }
