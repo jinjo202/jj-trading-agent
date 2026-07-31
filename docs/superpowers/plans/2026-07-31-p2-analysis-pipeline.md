@@ -1012,7 +1012,7 @@ export function computeTech(bars: Ohlcv[]): CandidateTech {
 npm test
 ```
 
-Expected: PASS — 36 + 스크리너 9 = 45개
+Expected: PASS — 41 + 스크리너 9 = 50개 (유니버스 실행 중 collectCodes 가드 테스트 5개가 늘어 36이 아니라 41부터 시작한다 — 위 "Task 2 실행 중 확정된 최종 형태" 참조)
 
 - [ ] **Step 6: 라이브 배치 시세 확인**
 
@@ -1114,7 +1114,7 @@ export type CompanyReport = {
 ```ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { validateAgentOutput, validateDailyVerdict } from './schema.ts'
+import { validateAgentOutput, validateCompanyReport, validateDailyVerdict } from './schema.ts'
 
 const goodAgent = {
   agent: 'macro',
@@ -1213,6 +1213,65 @@ test('픽의 market이 KR/US가 아니면 거부', () => {
   const bad = { ...goodVerdict, picks: [{ ...goodVerdict.picks[0], market: 'JP' }] }
   assert.throws(() => validateDailyVerdict(bad), /market/)
 })
+
+const goodReport = {
+  ticker: '005930.KS', name: '삼성전자', market: 'KR', sector: 'Technology',
+  generated_at: '2026-07-31T00:00:00.000Z',
+  snapshot: {
+    price: 71000, change_1d: 0.012, change_1m: 0.05, change_12m: 0.32,
+    market_cap: 4.2e14,
+    per: 12.3, pbr: null, roe: 0.15,
+    per_pctile_in_sector: 40, debt_to_equity: 25.1,
+    week52: { high: 90000, low: 55000, position: 0.6 },
+    revenue_trend: [{ period: '2026Q1', value: 1.1e14 }],
+    op_margin_trend: [{ period: '2026Q1', value: 0.28 }],
+  },
+  business: '메모리·시스템반도체를 설계·제조해 판매한다.',
+  thesis: ['메모리 사이클 회복', 'HBM 수요 확대', '파운드리 점유율 개선'],
+  bear_points: ['중국 경쟁 심화', '설비투자 부담', '환율 노출'],
+  catalysts: ['3분기 실적 발표'],
+  technical_read: '52주 밴드 중반, 완만한 상승 추세.',
+  news: [{ title: '삼성전자, HBM 공급 확대', url: 'http://e.com/a', date: '2026-07-30', takeaway: '수요 회복 시그널' }],
+  verdict: { stance: 'positive', one_liner: '메모리 회복 국면 초입', confidence: 0.6 },
+  invalidation: ['메모리 가격이 두 분기 연속 하락하면 이 논지는 깨진다'],
+  disclaimer: '투자자문이 아닙니다.',
+}
+
+test('정상 CompanyReport는 통과하고 같은 객체를 돌려준다', () => {
+  assert.deepEqual(validateCompanyReport(goodReport), goodReport)
+})
+
+test('invalidation이 비면 거부 — 반증 조건 없는 리포트는 받지 않는다', () => {
+  assert.throws(() => validateCompanyReport({ ...goodReport, invalidation: [] }), /invalidation/)
+})
+
+test('thesis나 bear_points가 비면 거부', () => {
+  assert.throws(() => validateCompanyReport({ ...goodReport, thesis: [] }), /thesis/)
+  assert.throws(() => validateCompanyReport({ ...goodReport, bear_points: [] }), /bear_points/)
+})
+
+test('market이 KR/US가 아니면 거부', () => {
+  assert.throws(() => validateCompanyReport({ ...goodReport, market: 'JP' }), /market/)
+})
+
+test('snapshot의 숫자 필드가 NaN이나 Infinity면 거부, null은 통과', () => {
+  assert.throws(() => validateCompanyReport({
+    ...goodReport, snapshot: { ...goodReport.snapshot, per: NaN },
+  }), /per/)
+  assert.throws(() => validateCompanyReport({
+    ...goodReport, snapshot: { ...goodReport.snapshot, per: Infinity },
+  }), /per/)
+  assert.deepEqual(
+    validateCompanyReport({ ...goodReport, snapshot: { ...goodReport.snapshot, per: null } }).snapshot.per,
+    null,
+  )
+})
+
+test('week52.position이 0-1 밖이면 거부', () => {
+  assert.throws(() => validateCompanyReport({
+    ...goodReport, snapshot: { ...goodReport.snapshot, week52: { ...goodReport.snapshot.week52, position: 1.5 } },
+  }), /position/)
+})
 ```
 
 - [ ] **Step 3: 테스트 실패 확인**
@@ -1232,7 +1291,11 @@ import type { AgentOutput, CompanyReport, DailyVerdict } from './types.ts'
 
 class Path {
   // ponytail: 문자열 경로를 손으로 잇는다. 검증기 하나 쓰자고 zod를 넣지 않는다.
-  constructor(readonly at: string) {}
+  // 생성자 파라미터 프로퍼티는 Node 24 타입 스트리핑이 지원하지 않으므로 본문에서 대입한다.
+  readonly at: string
+  constructor(at: string) {
+    this.at = at
+  }
   child(key: string | number): Path {
     return new Path(typeof key === 'number' ? `${this.at}[${key}]` : `${this.at}.${key}`)
   }
@@ -1460,7 +1523,7 @@ export function validateCompanyReport(v: unknown): CompanyReport {
 npm test
 ```
 
-Expected: PASS — 45 + 스키마 15 = 60개
+Expected: PASS — 50 + 스키마 21 = 71개
 
 - [ ] **Step 6: 타입체크 + 커밋**
 
@@ -1700,7 +1763,7 @@ export function buildBundleB(
 npm test
 ```
 
-Expected: PASS — 60 + prepare 5 = 65개
+Expected: PASS — 71 + prepare 5 = 76개
 
 - [ ] **Step 7: A단계 CLI**
 
@@ -2029,7 +2092,7 @@ export async function markRequestsFulfilled(
 npm test
 ```
 
-Expected: PASS — 65 + publish 5 = 70개
+Expected: PASS — 76 + publish 5 = 81개
 
 - [ ] **Step 6: CLI 작성**
 
@@ -2594,7 +2657,7 @@ Claude Code가 `prepare`가 만든 번들 파일을 읽고 agent를 순서대로
 npm test
 ```
 
-Expected: 70개 전부 통과
+Expected: 81개 전부 통과
 
 ```bash
 npm run typecheck
@@ -2648,7 +2711,7 @@ git commit -m "feat: add /daily slash command and correct design doc's news sour
 
 설계서 §13 P2 기준: **"실데이터 기반 `daily_verdicts` 1행 + `company_reports` 여러 행 생성"**
 
-- [ ] `npm test` — 70개 통과 (P1 21 + 뉴스 9 + 유니버스 6 + 스크리너 9 + 스키마 15 + prepare 5 + publish 5)
+- [ ] `npm test` — 81개 통과 (P1 21 + 뉴스 9 + 유니버스 6+5 + 스크리너 9 + 스키마 15+6 + prepare 5 + publish 5)
 - [ ] `npm run smoke` — 뉴스 2개 포함 전부 OK
 - [ ] `npm run universe` 후 `universe` 테이블에 KOSPI200 + S&P500이 Yahoo 섹터 어휘로 들어 있음
 - [ ] `/daily` 1회 실행으로 `daily_verdicts` 1행 + `agent_reports` 7행 + `company_reports` 1행 이상

@@ -25,3 +25,8 @@ Task 3: review 1 — implementation correct (per-market cut, null propagation, N
 Task 3: minor (deferred): fetchQuotes logs only chunk[0] on a failed batch; scoreCandidates re-checks a null turnover that filterByLiquidity already excludes.
 Task 3: fix round 1/5 (1 addressed, 0 open; commits 531b467..043970d). Fixture proven to discriminate — mutated run failed 1/9 with actual ['A.KS','B.KS'], implementation confirmed byte-identical after revert.
 Task 3: complete (commits 5d6793c..043970d, review clean, 50/50 tests)
+Task 4: implemented (commit f4f0e4b). Implementer self-caught Path constructor-param-property violating this task's own Node-24 constraint (fixed, behavior-preserving) and flagged validateCompanyReport had zero tests.
+Task 4: review 1 — spec OK, all three load-bearing guarantees (evidence, counter_case, invalidation) verified enforced live even for the untested CompanyReport path; Important plan-mandated: no CompanyReport test coverage. Ruling: fix.
+Task 4: minor (deferred): news[].date allows empty string; picks/catalysts have no min length. Both verbatim brief, neither load-bearing.
+Task 4: fix round 1/5 (1 addressed, 0 open; commits f4f0e4b..12b2f87). 6 CompanyReport tests added, each confirmed to fail if its underlying check were removed.
+Task 4: complete (commits e28b3dd..12b2f87, review clean, 71/71 tests)
