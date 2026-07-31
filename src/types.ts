@@ -4,7 +4,7 @@ export type Ohlcv = {
   high: number
   low: number
   close: number
-  volume: number
+  volume: number | null
 }
 
 export type Fundamentals = {

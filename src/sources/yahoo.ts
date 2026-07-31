@@ -16,7 +16,7 @@ export async function fetchDaily(symbol: string, days = 420): Promise<Ohlcv[]> {
       high: q.high as number,
       low: q.low as number,
       close: q.close as number,
-      volume: q.volume ?? 0,
+      volume: q.volume ?? null,
     }))
 }
 
