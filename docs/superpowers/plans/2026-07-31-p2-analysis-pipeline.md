@@ -2467,7 +2467,10 @@ XLU=Utilities, XLB=Basic Materials, XLRE=Real Estate, XLC=Communication Services
    `scores.news`는 `news` agent 결과와 `candidate_news`에서 나온다.
    **세 점수 모두 번들의 숫자를 근거로 해야 한다.** 근거 없이 숫자를 배정하지 않는다.
 5. `sectors`의 `etf` 필드는 `country_sector` agent가 쓴 ETF 티커와 일치해야 한다.
-6. `disclaimer`는 번들의 `disclaimer` 문자열을 그대로 복사한다.
+6. `countries`는 `country_sector` agent의 evidence 중 `country:KR`/`country:US` 라벨에서 그대로 가져온다.
+   `value`가 `OW`/`N`/`UW`, `rationale`은 그 근거를 한 문장으로 요약한다. 최소 1개.
+   이 변환을 코드가 대신 해주는 곳은 없다 — `synthesizer`가 유일한 지점이다.
+7. `disclaimer`는 번들의 `disclaimer` 문자열을 그대로 복사한다.
 
 ## 점수와 신호
 
