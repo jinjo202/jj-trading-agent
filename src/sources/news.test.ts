@@ -50,6 +50,12 @@ test('parseRss는 pubDate를 ISO로 정규화하고 실패 시 null', () => {
     's',
   )
   assert.equal(noDate[0].date, null)
+
+  const badDate = parseRss(
+    `<rss><channel><item><title>x</title><link>http://e.com/a</link><pubDate>어제쯤</pubDate></item></channel></rss>`,
+    's',
+  )
+  assert.equal(badDate[0].date, null, '파싱 불가한 pubDate는 null이지 "Invalid Date"가 아니다')
 })
 
 test('parseRss는 source를 모든 항목에 붙인다', () => {
@@ -69,4 +75,20 @@ test('parseRss는 title이나 link가 없는 항목을 버린다', () => {
 
 test('parseRss는 item이 없으면 빈 배열', () => {
   assert.deepEqual(parseRss('<rss><channel></channel></rss>', 's'), [])
+})
+
+test('parseRss는 숫자 엔티티도 디코드한다', () => {
+  const xml = `<rss><channel><item>
+    <title>Apple&#8217;s Q3 &#x2014; chips &amp; margins</title>
+    <link>http://e.com/a</link>
+  </item></channel></rss>`
+  assert.equal(parseRss(xml, 's')[0].title, 'Apple’s Q3 — chips & margins')
+})
+
+test('parseRss는 self-closing atom link의 href를 쓴다', () => {
+  const xml = `<rss><channel><item>
+    <title>기사</title>
+    <link rel="alternate" type="text/html" href="https://e.com/x"/>
+  </item></channel></rss>`
+  assert.equal(parseRss(xml, 's')[0].url, 'https://e.com/x')
 })
