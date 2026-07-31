@@ -15,3 +15,34 @@ Task 3: minor (deferred): index-based keys for DriverCard/invalidation list (har
 Task 3: complete (commits b6ebb90..835607d, review clean)
 NOTE: web/.env.local now exists on disk with real anon key (gitignored, not committed). Live build/dev verification is possible for all remaining tasks.
 Task 4: complete (commits a2d5631..2ccd6b1, review clean). No findings. Client/server split correct, chart reversed to oldest-first while list stays newest-first (correctly asymmetric), independent build re-run confirmed live against empty DB.
+Task 5: complete (commits 2ccd6b1..42aa530, review clean). agent_reports 라우트는 daily_verdicts 발행 여부로 게이팅.
+Task 6: complete. `/stock/[market]/[ticker]` 추가.
+Task 6: 브리프 초안에서 벗어난 부분 3개 — 모두 spec §8.1 충족을 위한 확장이며 축소는 없음.
+  (1) 브리프 페이지가 CompanyReport의 catalysts / week52 / pbr / roe / debt_to_equity /
+      per_pctile_in_sector / revenue_trend / op_margin_trend / generated_at 를 렌더하지 않았다.
+      spec §8.1이 1장 리포트의 구성요소로 명시한 필드들이라 전부 추가했다.
+  (2) 브리프는 리포트가 없을 때 notFound()를 불렀다. company_reports가 0행인 현재 상태에서는
+      모든 종목 링크가 404가 되어 기능이 고장난 것처럼 보인다. market 값이 잘못된 경우는
+      404를 유지하고(검증: /stock/XX/AAPL → 404), 리포트만 없는 경우는 "아직 생성되지 않음"
+      안내로 분리했다.
+  (3) 포맷 로직을 페이지에 인라인하지 않고 web/lib/format.ts에 순수 함수로 추가했다
+      (pctLabel / numLabel / priceLabel / marketCapLabel / companyStanceLabel).
+      퍼센트 표시가 페이지에서 8회 반복되고 per/pbr/roe/debt_to_equity가 nullable이라
+      결측 처리를 한 곳에 모아야 했다. 기존 signalLabel/stanceClassName 패턴을 따랐고
+      format.test.ts에 테스트를 붙였다 (6 → 18 tests).
+Task 6: 결측 처리 규칙 — null/undefined/NaN은 '-'로 표시한다. 0으로 채우면 실제 0%와
+  구별되지 않고, 없는 데이터를 있는 것처럼 보이게 만든다. 한국 종목 priceToBook 결측이
+  실제로 확인된 값이라 이 경로는 실측으로 검증했다 (PBR 셀이 '-'로 렌더됨).
+Task 6: 라이브 검증 방법 — company_reports가 0행이어서 빈 상태 분기만으로는 렌더를 확인할 수
+  없었다. ticker '__RENDERTEST__' 더미 1행을 Supabase에 임시 삽입해 프로덕션 빌드
+  (next start)로 실제 렌더를 확인한 뒤 삭제했다. 삭제 후 company_reports = 0행으로
+  원상복구 확인. 전 라우트 상태: / 200, /history 200, /agents/2026-07-31 200,
+  /stock/KR/005930 200, /stock/US/AAPL 200, /stock/XX/AAPL 404.
+Task 6: 라이브 검증에서 버그 1건 발견·수정 — marketCapLabel이 음수에서 압축을 건너뛰어
+  적자 분기 매출이 '-3,000,000,000,000'으로 새어 나왔다. `value >= 1e12` 비교가 음수에서
+  항상 거짓이라 raw toLocaleString으로 떨어진 것. 크기 판정을 절대값으로 바꾸고 부호를
+  따로 붙이도록 함수 자체를 고쳤다(호출처 전부가 이득). 회귀 테스트 추가, 재검증 결과 '-3.0조'.
+  이 버그는 fixture에 적자 분기를 일부러 넣어서 드러났다 — 양수만 있는 데이터로는 안 잡혔다.
+Task 6: 미착수로 남긴 것 — spec §8.2의 리포트 요청 큐(report_requests INSERT + API 라우트).
+  P3 plan에 태스크가 없고 Task 6 범위 밖이다. 테이블과 RLS는 이미 있으므로 후속 작업으로
+  붙이면 된다. 현재는 "일일 실행에서 생성됩니다" 안내로 대체.

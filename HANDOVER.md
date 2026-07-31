@@ -23,7 +23,7 @@
 |---|---|---|
 | P1 | 수집 파이프라인 (데이터 소스, 지표 계산, 스냅샷) | **완료** |
 | P2 | 분석 파이프라인 (agent 프롬프트 9개, 스크리너, 발행) | **완료** |
-| P3 | 웹 대시보드 | **7개 중 5개 완료** |
+| P3 | 웹 대시보드 | **7개 중 6개 완료** |
 | P4 | 자동화 (pg_cron 수집, 작업 스케줄러 분석) | 미착수 |
 
 ### P3 세부
@@ -35,20 +35,42 @@
 | 3 | `/` 오늘의 결론 페이지 | 완료 |
 | 4 | `/history` 페이지 | 완료 |
 | 5 | `/agents/[date]` 페이지 | 완료 |
-| **6** | **`/stock/[market]/[ticker]` 기업 1장 리포트** | **미착수 ← 다음 할 일** |
+| 6 | `/stock/[market]/[ticker]` 기업 1장 리포트 | 완료 |
 | **7** | **Vercel 배포** | **미착수 (인증 필요, §6 참조)** |
 
-Task 6이 사용자가 명시적으로 요청한 "종목 클릭 → 1장짜리 기업 분석 리포트" 기능이다.
-현재 배포하면 이 페이지가 없는 상태로 나간다. 계획은 P3 plan 파일 950번째 줄부터 있다.
+Task 6은 "종목 클릭 → 1장짜리 기업 분석 리포트" 기능이다. `/`의 추천 종목 카드가 이미
+`/stock/{market}/{ticker}`로 링크되어 있어서 클릭 경로가 연결되었다.
+spec §8.1의 전 항목을 렌더한다 — 가격·등락률·시가총액, PER/PBR/ROE/부채비율/섹터 백분위,
+52주 위치 바, 사업 설명, 투자논지, 반대논거, 향후 촉매, 매출·영업이익률 분기 추이 막대,
+차트 해석, 종합 판단, 최근 뉴스, 무효화 조건.
+
+남은 것은 spec §8.2의 **리포트 요청 큐**다 (`report_requests` INSERT + API 라우트).
+테이블과 RLS는 이미 있고, 지금은 "일일 실행에서 생성됩니다" 안내로 대체되어 있다.
 
 ### 실측 검증 결과 (2026-07-31 기준)
 
 ```
-npm test          → 101 tests, 101 pass, 0 fail
-npm run typecheck  → clean, exit 0
-cd web && npm run build → 성공. Next.js 16.2.12
-                     라우트: / (static, 1h revalidate), /history (static), /agents/[date] (dynamic)
+npm test                 → 101 tests, 101 pass, 0 fail   (루트)
+cd web && npm test       → 18 tests, 18 pass, 0 fail
+npm run typecheck        → clean, exit 0 (루트/web 양쪽)
+cd web && npm run build  → 성공. Next.js 16.2.12
 ```
+
+라우트별 실제 HTTP 응답 (`next start` 프로덕션 빌드에 curl):
+
+| 라우트 | 응답 |
+|---|---|
+| `/` | 200 (static, 1h revalidate) |
+| `/history` | 200 (static, 1h revalidate) |
+| `/agents/2026-07-31` | 200 (dynamic) |
+| `/stock/KR/005930` | 200 — 리포트 없음 안내 |
+| `/stock/US/AAPL` | 200 — 리포트 없음 안내 |
+| `/stock/XX/AAPL` | 404 — 잘못된 market 거부 |
+
+`company_reports`가 0행이라 빈 상태 분기만으로는 렌더를 확인할 수 없었으므로,
+`ticker='__RENDERTEST__'` 더미 1행을 임시로 넣어 채워진 화면을 실제로 확인하고 삭제했다.
+삭제 후 `company_reports = 0행` 원상복구를 확인했다. 이 과정에서 `marketCapLabel`이 음수에서
+압축을 건너뛰는 버그를 찾아 고쳤다(적자 분기 매출이 원본 자릿수로 새어 나왔다).
 
 ---
 
@@ -275,9 +297,10 @@ supabase/migrations/0001_trading_agent_schema.sql
 1. §3의 막힌 것 3개 해소 — 특히 `SUPABASE_SERVICE_ROLE_KEY`, `FRED_API_KEY`
 2. `npm run universe` → `collect` → `candidates` → `prepare:bundle` → `/daily` → `publish:run`을
    한 번 완주해서 `daily_verdicts`에 실제 1행을 만든다. 이게 전체 파이프라인의 첫 실증이다.
-3. P3 Task 6: `/stock/[market]/[ticker]` 기업 1장 리포트 (사용자 요청 기능)
-4. P3 Task 7: Vercel 배포 (§6)
-5. P4: pg_cron 수집 자동화 + `claude login` 후 작업 스케줄러
+   지금까지 모든 화면 검증은 빈 DB 또는 더미 1행 기준이므로, 실데이터로 도는 것은 아직 미확인이다.
+3. P3 Task 7: Vercel 배포 (§6)
+4. P4: pg_cron 수집 자동화 + `claude login` 후 작업 스케줄러
+5. spec §8.2 리포트 요청 큐 (`report_requests` INSERT + API 라우트)
 
 ---
 
