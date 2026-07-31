@@ -5,7 +5,7 @@ import { fetchSymbolNews } from '../sources/news.ts'
 import {
   computeTech, fetchQuotes, filterByLiquidity, rankByMomentum, scoreCandidates,
 } from '../screener.ts'
-import { buildSnapshot } from '../snapshot.ts'
+import { buildSnapshot, sectorPeersOrEmpty } from '../snapshot.ts'
 import { buildBundleB, owSectorsFrom } from '../prepare.ts'
 import { validateAgentOutput } from '../schema.ts'
 import type { BundleA, CompanyReport, Fundamentals, NewsItem, Ohlcv } from '../types.ts'
@@ -75,12 +75,14 @@ try {
   }
 
   // 섹터별 forwardPE 동료군 — per_pctile_in_sector 계산에 쓴다.
+  // sector가 null인 후보는 다른 미상 섹터 후보와 서로 동료로 묶이면 안 되므로 버킷에서 뺀다
+  // (그래도 자기 자신의 스냅샷은 만든다 — 그냥 섹터 동료가 없을 뿐이다).
   const peersBySector = new Map<string, (number | null)[]>()
   for (const c of candidates) {
-    const key = c.sector ?? ''
-    const arr = peersBySector.get(key) ?? []
+    if (c.sector === null) continue
+    const arr = peersBySector.get(c.sector) ?? []
     arr.push(funds.get(c.ticker)?.forwardPE ?? null)
-    peersBySector.set(key, arr)
+    peersBySector.set(c.sector, arr)
   }
 
   const snapshots: Record<string, CompanyReport['snapshot']> = {}
@@ -88,7 +90,8 @@ try {
     const bars = barsByTicker.get(c.ticker)
     const f = funds.get(c.ticker)
     if (!bars || !f) continue
-    const snap = buildSnapshot(bars, f, peersBySector.get(c.sector ?? '') ?? [])
+    const peers = c.sector === null ? [] : (peersBySector.get(c.sector) ?? [])
+    const snap = buildSnapshot(bars, f, sectorPeersOrEmpty(peers))
     if (snap) snapshots[c.ticker] = snap
     else console.error(`스냅샷 ${c.ticker} 생성 실패 — 데이터 부족 (기업 리포트에서 제외됨)`)
   }

@@ -3,6 +3,16 @@ import type { Fundamentals, Ohlcv, CompanyReport } from './types.ts'
 
 export type CompanySnapshot = CompanyReport['snapshot']
 
+// pctRank는 표본이 작아도 답을 낸다 — 동료가 2-3개뿐인 섹터 버킷에서도 0/100을 뱉는다.
+// per_pctile_in_sector가 그런 가짜 정밀도를 갖지 않도록, 유효(non-null) 동료가
+// 이 값보다 적으면 빈 배열을 넘겨 pctRank 자체가 null을 반환하게 만든다.
+export const MIN_SECTOR_PEERS = 5
+
+export function sectorPeersOrEmpty(peers: (number | null)[]): (number | null)[] {
+  const finiteCount = peers.filter((p) => p !== null).length
+  return finiteCount >= MIN_SECTOR_PEERS ? peers : []
+}
+
 // 스냅샷을 만들 수 없으면 null을 반환한다. 0이나 추정치로 채우지 않는다 —
 // LLM이 여기 없는 숫자를 지어내는 것보다 그 종목의 리포트를 하루 건너뛰는 편이 낫다.
 export function buildSnapshot(
