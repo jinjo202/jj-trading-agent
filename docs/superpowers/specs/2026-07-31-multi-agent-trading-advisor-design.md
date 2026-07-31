@@ -55,7 +55,9 @@
 | Yahoo `v8/finance/chart` raw | 200. 브라우저 User-Agent 필수(없으면 429). OHLCV + 52주 고저 + longName | 지수·ETF 시계열 (라이브러리 우회 경로) | 불필요 |
 | Naver `api.finance.naver.com/siseJson.naver` | 200. 무키. OHLCV + **외국인소진율** | 한국 폴백 + **외국인 수급** (Yahoo에 없는 값) | 불필요 |
 | FRED `api.stlouisfed.org` | 도달 확인 (400 = 키 없음) | 미국 매크로 | 무료 발급 |
-| 네이버 뉴스 (Claude Code MCP) | 세션에 연결됨 | 한국 뉴스 | MCP |
+| Yahoo 종목 RSS `feeds.finance.yahoo.com/rss/2.0/headline?s=` | **성공.** `AAPL`·`005930.KS` 모두 20건 | 한·미 종목 뉴스 | 불필요 |
+| 연합뉴스 경제 RSS `yna.co.kr/rss/economy.xml` | **성공.** 120건, CDATA 제목 | 한국 매크로 뉴스 | 불필요 |
+| ~~네이버 뉴스 MCP~~ | **세션에 그런 서버가 없다.** 설계 시점의 전제가 틀렸음 | 사용하지 않음 | — |
 | US 뉴스 RSS | — | 미국 뉴스 | 불필요 |
 | ~~Yahoo `v10/quoteSummary` raw curl~~ | `Invalid Crumb`. `v7/quote`도 `Unauthorized` | raw 호출 금지, 반드시 라이브러리 경유 | — |
 | ~~Stooq~~ | **차단.** JS proof-of-work 챌린지 | 사용하지 않음 | — |
@@ -261,7 +263,9 @@ Next.js 15 App Router + Tailwind + shadcn/ui + Recharts. 모바일 우선.
 ### v1 — 수동 (오늘 바로 작동, 인증 작업 불필요)
 
 리포지토리의 슬래시 커맨드 `/daily`를 Claude Code에서 실행한다.
-Claude Code가 스냅샷을 읽고 agent 7개를 순서대로 돌린 뒤 Supabase MCP로 결과를 쓴다.
+Claude Code가 `prepare`가 만든 번들 파일을 읽고 agent를 순서대로 돌린 뒤 결과 JSON을 파일로 쓴다.
+`publish`가 스키마 검증을 통과한 것만 DB에 쓴다. LLM은 DB에 직접 쓰지 않는다 —
+검증되지 않은 출력이 DB에 들어가는 경로를 만들지 않기 위해서다.
 
 ### v2 — 자동 (승급)
 
