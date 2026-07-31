@@ -58,7 +58,7 @@
 
 **Interfaces:**
 - Consumes: 없음 (첫 태스크)
-- Produces: `web/lib/supabase.ts`: `supabase: SupabaseClient` (모듈 싱글턴), `components/Disclaimer.tsx`: `export function Disclaimer(): JSX.Element`
+- Produces: `web/lib/supabase.ts`: `getSupabase(): SupabaseClient` (지연 싱글턴 — 처음 호출될 때만 만들고 캐시한다), `components/Disclaimer.tsx`: `export function Disclaimer(): JSX.Element`
 
 - [ ] **Step 1: 디렉터리 확인 후 패키지 파일 생성**
 
@@ -167,20 +167,26 @@ cd web && npm install && cd ..
 
 - [ ] **Step 3: Supabase 클라이언트**
 
-`web/lib/supabase.ts`:
+`web/lib/supabase.ts` — 루트 `src/db.ts`의 `db()`와 같은 지연 싱글턴 패턴을 쓴다.
+모듈을 그냥 import만 해도(예: 순수 함수 테스트가 같은 파일을 통과 import할 때) 즉시 던지면 안 되므로,
+실제로 호출될 때만 만들고 그 뒤로는 캐시한다:
 
 ```ts
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+let client: SupabaseClient | null = null
 
-if (!url || !key) {
-  throw new Error('NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY 환경변수가 필요합니다')
+export function getSupabase(): SupabaseClient {
+  if (client) return client
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY 환경변수가 필요합니다')
+  }
+  // anon 키만 쓴다. service_role은 이 파일에도, web/ 어디에도 존재하지 않는다.
+  client = createClient(url, key)
+  return client
 }
-
-// anon 키만 쓴다. service_role은 이 파일에도, web/ 어디에도 존재하지 않는다.
-export const supabase = createClient(url, key)
 ```
 
 - [ ] **Step 4: 디스클레이머 컴포넌트 + 전역 레이아웃**
@@ -256,7 +262,7 @@ git commit -m "feat: scaffold Next.js dashboard with anon-only Supabase client"
 - Test: `web/lib/queries.test.ts`
 
 **Interfaces:**
-- Consumes: `web/lib/supabase.ts`의 `supabase`
+- Consumes: `web/lib/supabase.ts`의 `getSupabase()`
 - Produces:
   - `types.ts`: `DailyVerdict`, `AgentOutput`, `CompanyReport` (설계서 §6.1/§7/§8.1과 동일한 최소 형태)
   - `format.ts`: `equityWeightLabel(range: [number, number]): string`, `signalLabel(signal: DailyVerdict['signal']): { text: string; className: string }`, `stanceClassName(stance: 'OW' | 'N' | 'UW'): string`, `scoreGaugeColor(score: number): string`
@@ -453,11 +459,11 @@ Expected: FAIL — `Cannot find module './queries.ts'`
 - [ ] **Step 8: `queries.ts` 구현**
 
 ```ts
-import { supabase } from './supabase.ts'
+import { getSupabase } from './supabase.ts'
 import type { AgentOutput, CompanyReport, DailyVerdict } from './types.ts'
 
 export async function getLatestPublishedVerdict(): Promise<{ date: string; verdict: DailyVerdict } | null> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('daily_verdicts')
     .select('date,verdict')
     .order('date', { ascending: false })
@@ -470,7 +476,7 @@ export async function getLatestPublishedVerdict(): Promise<{ date: string; verdi
 export async function getVerdictHistory(
   limit = 90,
 ): Promise<{ date: string; verdict: DailyVerdict }[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('daily_verdicts')
     .select('date,verdict')
     .order('date', { ascending: false })
@@ -486,7 +492,7 @@ export function historyPoint(row: { date: string; verdict: DailyVerdict }): { da
 // agent_reports는 RLS가 이미 전체 SELECT를 허용하므로, "발행 여부" 판단은
 // daily_verdicts를 따로 조회해 앱 레벨에서 화면 노출을 결정한다.
 export async function isPublished(date: string): Promise<boolean> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('daily_verdicts')
     .select('date')
     .eq('date', date)
@@ -498,7 +504,7 @@ export async function isPublished(date: string): Promise<boolean> {
 export async function getAgentReports(
   date: string,
 ): Promise<{ agent: string; output: AgentOutput }[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('agent_reports')
     .select('agent,output')
     .eq('date', date)
@@ -511,7 +517,7 @@ export async function getLatestCompanyReport(
   ticker: string,
   market: 'KR' | 'US',
 ): Promise<CompanyReport | null> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('company_reports')
     .select('payload')
     .eq('ticker', ticker)

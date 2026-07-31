@@ -1,15 +1,8 @@
+import { getSupabase } from './supabase.ts'
 import type { AgentOutput, CompanyReport, DailyVerdict } from './types.ts'
 
-// 지연 import: 모듈 로드 시점에 env var를 요구하지 않기 위해서다.
-// historyPoint는 순수 함수라 이 파일을 import해도 실제 DB 함수를 호출하지 않는 한
-// 네트워크/자격증명이 전혀 필요 없어야 한다 (queries.test.ts가 정확히 이 경우).
-async function client() {
-  const { supabase } = await import('./supabase.ts')
-  return supabase
-}
-
 export async function getLatestPublishedVerdict(): Promise<{ date: string; verdict: DailyVerdict } | null> {
-  const supabase = await client()
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from('daily_verdicts')
     .select('date,verdict')
@@ -23,7 +16,7 @@ export async function getLatestPublishedVerdict(): Promise<{ date: string; verdi
 export async function getVerdictHistory(
   limit = 90,
 ): Promise<{ date: string; verdict: DailyVerdict }[]> {
-  const supabase = await client()
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from('daily_verdicts')
     .select('date,verdict')
@@ -40,7 +33,7 @@ export function historyPoint(row: { date: string; verdict: DailyVerdict }): { da
 // agent_reports는 RLS가 이미 전체 SELECT를 허용하므로, "발행 여부" 판단은
 // daily_verdicts를 따로 조회해 앱 레벨에서 화면 노출을 결정한다.
 export async function isPublished(date: string): Promise<boolean> {
-  const supabase = await client()
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from('daily_verdicts')
     .select('date')
@@ -53,7 +46,7 @@ export async function isPublished(date: string): Promise<boolean> {
 export async function getAgentReports(
   date: string,
 ): Promise<{ agent: string; output: AgentOutput }[]> {
-  const supabase = await client()
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from('agent_reports')
     .select('agent,output')
@@ -67,7 +60,7 @@ export async function getLatestCompanyReport(
   ticker: string,
   market: 'KR' | 'US',
 ): Promise<CompanyReport | null> {
-  const supabase = await client()
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from('company_reports')
     .select('payload')
