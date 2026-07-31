@@ -32,3 +32,6 @@ Task 4: fix round 1/5 (1 addressed, 0 open; commits f4f0e4b..12b2f87). 6 Company
 Task 4: complete (commits e28b3dd..12b2f87, review clean, 71/71 tests)
 Task 5: implemented (commit a799814, 76/76 tests). Implementer caught candidate() test fixture missing required tech:null field (type error, no assertion change). Live news-fetch path verified: SPY 6 items, Yonhap 15 items.
 Task 5: review 1 — spec OK, owSectorsFrom hand-verified correct for mixed case/whitespace/empty; Important plan-mandated: no test actually exercises those cases the brief itself calls load-bearing. Ruling: fix. Plan file corrected (candidate() tech field + new case/whitespace test) at source.
+Task 5: fix round 1/5 (1 addressed, 0 open; commits a799814..450ec0e). Re-reviewer confirmed the test fails against both a case-sensitive revert and a non-trimming revert.
+Task 5: parked — readLatestSnapshot/readOpenReportRequests and full A->B CLI unverified against live DB (SUPABASE_SERVICE_ROLE_KEY empty). Live news-fetching path verified (SPY 6 items, Yonhap 15). Ruling: real gap, blocked on human-supplied credential; closes when key lands and prepare:bundle/candidates run for real.
+Task 5: complete (commits 26a1f2d..450ec0e, review clean, 77/77 tests)
