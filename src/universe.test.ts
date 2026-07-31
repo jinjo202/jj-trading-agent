@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { GICS_TO_YAHOO_SECTOR, SECTOR_BY_ETF, parseKospi200Page, parseSp500Csv } from './universe.ts'
+import { GICS_TO_YAHOO_SECTOR, SECTOR_BY_ETF, parseKospi200Page, parseSp500Csv, collectCodes } from './universe.ts'
 
 const CSV = `Symbol,Security,GICS Sector,GICS Sub-Industry,Headquarters Location,Date added,CIK,Founded
 MMM,3M,Industrials,Industrial Conglomerates,"Saint Paul, Minnesota",1957-03-04,66740,1902
@@ -51,4 +51,62 @@ test('GICS 매핑은 11개 섹터를 모두 덮고 ETF 매핑과 같은 어휘�
   for (const s of etfSectors) {
     assert.ok(yahooSectors.has(s), `ETF 섹터 ${s}가 GICS 매핑 결과에 없다`)
   }
+})
+
+const codesFor = (page: number, n: number, variant = 0) =>
+  Array.from({ length: n }, (_, i) => `p${page}v${variant}c${i}`)
+
+test('collectCodes: 빈 페이지는 같은 페이지 번호로 재시도한다', async () => {
+  const calls: number[] = []
+  let page2Attempts = 0
+  const fetchPage = async (page: number) => {
+    calls.push(page)
+    if (page === 1) return codesFor(1, 10)
+    if (page === 2) {
+      page2Attempts++
+      return page2Attempts === 1 ? [] : codesFor(2, 10, 1)
+    }
+    return [] // page 3+: 두 번 다 빈 페이지 -> 루프 종료
+  }
+  const result = await collectCodes(fetchPage, { minCodes: 5, retryDelayMs: 0, pageDelayMs: 0 })
+  assert.deepEqual(calls.filter((p) => p === 2), [2, 2])
+  for (const c of codesFor(2, 10, 1)) assert.ok(result.includes(c))
+})
+
+test('collectCodes: 같은 페이지가 연속 두 번 비면 루프를 끝낸다', async () => {
+  const calls: number[] = []
+  const fetchPage = async (page: number) => {
+    calls.push(page)
+    return page <= 15 ? codesFor(page, 10) : []
+  }
+  const result = await collectCodes(fetchPage, { minCodes: 150, retryDelayMs: 0, pageDelayMs: 0 })
+  assert.equal(result.length, 150)
+  assert.ok(calls.every((p) => p <= 16), `16 이후 페이지가 요청됨: ${calls}`)
+})
+
+test('collectCodes: 최소 개수보다 적으면 에러를 던지고 메시지에 개수를 담는다', async () => {
+  const fetchPage = async (page: number) => (page === 1 ? codesFor(1, 10) : [])
+  await assert.rejects(
+    () => collectCodes(fetchPage, { retryDelayMs: 0, pageDelayMs: 0 }),
+    /10/,
+  )
+})
+
+test('collectCodes: maxPages에서 멈추고 그 이상은 요청하지 않는다', async () => {
+  let calls = 0
+  const fetchPage = async (page: number) => { calls++; return codesFor(page, 10) }
+  const result = await collectCodes(fetchPage, { maxPages: 5, minCodes: 5, retryDelayMs: 0, pageDelayMs: 0 })
+  assert.equal(result.length, 50)
+  assert.equal(calls, 5)
+})
+
+test('collectCodes: fetchPage 에러는 삼키지 않고 그대로 전파한다', async () => {
+  const fetchPage = async (page: number) => {
+    if (page === 2) throw new Error('HTTP 503')
+    return codesFor(page, 10)
+  }
+  await assert.rejects(
+    () => collectCodes(fetchPage, { minCodes: 5, retryDelayMs: 0, pageDelayMs: 0 }),
+    /HTTP 503/,
+  )
 })
