@@ -77,7 +77,7 @@ export function realizedVol(values: number[], period = 20): number | null {
 export function momentum12_1(values: number[]): number | null {
   if (values.length < 253) return null
   const start = values[values.length - 253]
-  const end = values[values.length - 21]
+  const end = values[values.length - 22]
   return start === 0 ? null : end / start - 1
 }
 

@@ -52,8 +52,8 @@ test('realizedVol: 가격이 일정하면 0', () => {
 })
 
 test('momentum12_1은 t-252 대비 t-21 수익률', () => {
-  // 253개 중 index 0 = 100, index 232(=252-20) = 150
-  const values = Array.from({ length: 253 }, (_, i) => (i === 0 ? 100 : i === 232 ? 150 : 1))
+  // length 253이면 t = index 252. t-252 = index 0, t-21 = index 231.
+  const values = Array.from({ length: 253 }, (_, i) => (i === 0 ? 100 : i === 231 ? 150 : 1))
   assert.ok(Math.abs(momentum12_1(values)! - 0.5) < 1e-9)
   assert.equal(momentum12_1([1, 2, 3]), null)
 })
