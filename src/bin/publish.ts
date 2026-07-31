@@ -15,10 +15,12 @@ try {
   const a = JSON.parse(await readFile(`runs/${date}/agents-a.json`, 'utf8')) as unknown
   const b = JSON.parse(await readFile(`runs/${date}/agents-b.json`, 'utf8')) as Record<string, unknown>
   if (!Array.isArray(a)) throw new Error(`agents-a.json의 최상위가 배열이 아닙니다`)
-  if (b.agents !== undefined && !Array.isArray(b.agents)) {
-    throw new Error(`agents-b.json의 agents 필드가 배열이 아닙니다`)
+  // b.agents가 배열이면 A단계와 합치고, 아니면(undefined 포함) 그대로 넘겨
+  // splitOutputs가 유일한 검증 지점 역할을 하게 한다.
+  const merged = {
+    ...b,
+    agents: Array.isArray(b.agents) ? [...a, ...b.agents] : b.agents === undefined ? a : b.agents,
   }
-  const merged = { ...b, agents: [...a, ...(Array.isArray(b.agents) ? b.agents : [])] }
 
   const { agents, verdict, reports } = splitOutputs(merged)
   if (verdict.date !== date) {

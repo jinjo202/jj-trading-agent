@@ -64,6 +64,20 @@ test('owSectorsFrom은 대소문자와 공백을 허용한다', () => {
   assert.deepEqual(owSectorsFrom([cs]), ['Technology', 'Energy', 'Utilities'])
 })
 
+test('owSectorsFrom은 섹터명을 대소문자 구분 없이 정규화한다', () => {
+  const cs = agent('country_sector', {
+    evidence: [{ label: 'sector:technology', value: 'OW', source: 's' }],
+  })
+  assert.deepEqual(owSectorsFrom([cs]), ['Technology'])
+})
+
+test('owSectorsFrom은 알 수 없는 섹터명이면 던진다', () => {
+  const cs = agent('country_sector', {
+    evidence: [{ label: 'sector:Widgets', value: 'OW', source: 's' }],
+  })
+  assert.throws(() => owSectorsFrom([cs]), /Widgets/)
+})
+
 test('owSectorsFrom은 country_sector가 없거나 OW가 없으면 빈 배열', () => {
   assert.deepEqual(owSectorsFrom([agent('macro')]), [])
   assert.deepEqual(owSectorsFrom([agent('country_sector', { evidence: [{ label: 'sector:X', value: 'UW', source: 's' }] })]), [])

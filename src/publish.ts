@@ -11,6 +11,12 @@ export function splitOutputs(raw: unknown): {
   }
   const o = raw as Record<string, unknown>
   if (o.verdict === undefined) throw new Error('LLM 출력: verdict가 없음')
+  if (o.agents !== undefined && !Array.isArray(o.agents)) {
+    throw new Error('LLM 출력: agents 필드가 배열이 아닙니다')
+  }
+  if (o.company_reports !== undefined && !Array.isArray(o.company_reports)) {
+    throw new Error('LLM 출력: company_reports 필드가 배열이 아닙니다')
+  }
   const agentsRaw = Array.isArray(o.agents) ? o.agents : []
   const reportsRaw = Array.isArray(o.company_reports) ? o.company_reports : []
   return {

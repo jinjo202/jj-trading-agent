@@ -127,7 +127,7 @@ export function validateDailyVerdict(v: unknown): DailyVerdict {
         rationale: str(so.rationale, sp.child('rationale')),
       }
     }),
-    picks: arr(o.picks, p.child('picks')).map((k, i) => {
+    picks: arr(o.picks, p.child('picks'), { min: 1 }).map((k, i) => {
       const kp = p.child('picks').child(i)
       const ko = obj(k, kp)
       const scores = obj(ko.scores, kp.child('scores'))
@@ -177,7 +177,14 @@ export function validateCompanyReport(v: unknown): CompanyReport {
     name: str(o.name, p.child('name')),
     market: oneOf(o.market, p.child('market'), ['KR', 'US'] as const),
     sector: str(o.sector, p.child('sector')),
-    generated_at: str(o.generated_at, p.child('generated_at')),
+    generated_at: (() => {
+      const gp = p.child('generated_at')
+      const generated_at = str(o.generated_at, gp)
+      if (!/^\d{4}-\d{2}-\d{2}/.test(generated_at)) {
+        gp.fail(`ISO 8601 날짜로 시작해야 함 (받은 값: ${generated_at})`)
+      }
+      return generated_at
+    })(),
     snapshot: {
       price: numIn(s.price, sp.child('price'), 0, Number.MAX_SAFE_INTEGER),
       change_1d: numIn(s.change_1d, sp.child('change_1d'), -1, 10),

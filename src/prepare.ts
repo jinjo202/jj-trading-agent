@@ -1,4 +1,15 @@
 import type { AgentOutput, BundleA, BundleB, Candidate, FeatureSet, NewsItem } from './types.ts'
+import { SECTOR_BY_ETF } from './universe.ts'
+
+const KNOWN_SECTORS = Object.values(SECTOR_BY_ETF)
+
+// LLM이 어떤 대소문자로 섹터명을 내든 DB의 정식 표기(SECTOR_BY_ETF)로 맞춘다.
+// 어휘에 없는 이름은 오타로 보고 여기서 크게 실패시킨다 — 빈 유니버스로 조용히 흘러가는 것보다 낫다.
+function canonicalSector(raw: string): string {
+  const match = KNOWN_SECTORS.find((s) => s.toLowerCase() === raw.toLowerCase())
+  if (!match) throw new Error(`알 수 없는 섹터명: "${raw}" — country_sector agent의 출력을 확인하세요`)
+  return match
+}
 
 export const DISCLAIMER =
   '이 문서는 공개 데이터를 정리·해석한 리서치 자료이며 투자자문이 아닙니다. ' +
@@ -28,6 +39,7 @@ export function owSectorsFrom(agents: AgentOutput[]): string[] {
     .filter((e) => e.label.startsWith('sector:') && e.value.trim().toUpperCase() === 'OW')
     .map((e) => e.label.slice('sector:'.length).trim())
     .filter((s) => s.length > 0)
+    .map((s) => canonicalSector(s))
 }
 
 export function buildBundleB(

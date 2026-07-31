@@ -14,7 +14,11 @@ const verdict = {
   drivers: [{ agent: 'macro', direction: '+', weight: 0.3, point: 'p' }],
   counter_case: '반대 논거', countries: [{ code: 'KR', stance: 'OW', rationale: 'r' }],
   sectors: [{ name: 'Technology', stance: 'OW', etf: 'XLK', rationale: 'r' }],
-  picks: [], invalidation: ['조건'], disclaimer: 'd',
+  picks: [{
+    ticker: 'AAPL', name: 'Apple', market: 'US', sector: 'Technology',
+    thesis: 't', scores: { tech: 70, fund: 65, news: 60 }, risk: 'r',
+  }],
+  invalidation: ['조건'], disclaimer: 'd',
 }
 
 test('splitOutputs는 세 종류를 나눠 담는다', () => {
@@ -39,4 +43,12 @@ test('splitOutputs는 최상위가 객체가 아니면 거부', () => {
 
 test('splitOutputs는 company_reports가 없으면 빈 배열로 둔다', () => {
   assert.deepEqual(splitOutputs({ agents: [agent], verdict }).reports, [])
+})
+
+test('splitOutputs는 agents가 배열이 아니면 거부', () => {
+  assert.throws(() => splitOutputs({ agents: {}, verdict }), /agents/)
+})
+
+test('splitOutputs는 company_reports가 배열이 아니면 거부', () => {
+  assert.throws(() => splitOutputs({ agents: [agent], verdict, company_reports: {} }), /company_reports/)
 })

@@ -100,6 +100,10 @@ test('픽의 market이 KR/US가 아니면 거부', () => {
   assert.throws(() => validateDailyVerdict(bad), /market/)
 })
 
+test('picks가 비면 거부 — 빈 검증(zero-pick) verdict는 통과시키지 않는다', () => {
+  assert.throws(() => validateDailyVerdict({ ...goodVerdict, picks: [] }), /picks/)
+})
+
 const goodReport = {
   ticker: '005930.KS', name: '삼성전자', market: 'KR', sector: 'Technology',
   generated_at: '2026-07-31T00:00:00.000Z',
@@ -151,6 +155,10 @@ test('snapshot의 숫자 필드가 NaN이나 Infinity면 거부, null은 통과'
     validateCompanyReport({ ...goodReport, snapshot: { ...goodReport.snapshot, per: null } }).snapshot.per,
     null,
   )
+})
+
+test('generated_at이 ISO 8601 날짜로 시작하지 않으면 거부', () => {
+  assert.throws(() => validateCompanyReport({ ...goodReport, generated_at: 'not a date' }), /generated_at/)
 })
 
 test('week52.position이 0-1 밖이면 거부', () => {
