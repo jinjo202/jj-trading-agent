@@ -3570,16 +3570,16 @@
     "active": true
   },
   {
-    "ticker": "032830.KS",
+    "ticker": "105560.KS",
     "market": "KR",
-    "name": "Samsung Life Insurance Co., Ltd.",
+    "name": "KB Financial Group Inc.",
     "sector": "Financial Services",
     "active": true
   },
   {
-    "ticker": "105560.KS",
+    "ticker": "032830.KS",
     "market": "KR",
-    "name": "KB Financial Group Inc.",
+    "name": "Samsung Life Insurance Co., Ltd.",
     "sector": "Financial Services",
     "active": true
   },
@@ -3591,10 +3591,10 @@
     "active": true
   },
   {
-    "ticker": "000270.KS",
+    "ticker": "012450.KS",
     "market": "KR",
-    "name": "Kia Corporation",
-    "sector": "Consumer Cyclical",
+    "name": "Hanwha Aerospace Co., Ltd.",
+    "sector": "Industrials",
     "active": true
   },
   {
@@ -3605,24 +3605,17 @@
     "active": true
   },
   {
+    "ticker": "000270.KS",
+    "market": "KR",
+    "name": "Kia Corporation",
+    "sector": "Consumer Cyclical",
+    "active": true
+  },
+  {
     "ticker": "055550.KS",
     "market": "KR",
     "name": "Shinhan Financial Group Co., Ltd.",
     "sector": "Financial Services",
-    "active": true
-  },
-  {
-    "ticker": "012450.KS",
-    "market": "KR",
-    "name": "Hanwha Aerospace Co., Ltd.",
-    "sector": "Industrials",
-    "active": true
-  },
-  {
-    "ticker": "068270.KS",
-    "market": "KR",
-    "name": "Celltrion, Inc.",
-    "sector": "Healthcare",
     "active": true
   },
   {
@@ -3640,17 +3633,17 @@
     "active": true
   },
   {
+    "ticker": "068270.KS",
+    "market": "KR",
+    "name": "Celltrion, Inc.",
+    "sector": "Healthcare",
+    "active": true
+  },
+  {
     "ticker": "034730.KS",
     "market": "KR",
     "name": "SK Inc.",
     "sector": "Industrials",
-    "active": true
-  },
-  {
-    "ticker": "086790.KS",
-    "market": "KR",
-    "name": "Hana Financial Group Inc.",
-    "sector": "Financial Services",
     "active": true
   },
   {
@@ -3661,9 +3654,23 @@
     "active": true
   },
   {
+    "ticker": "086790.KS",
+    "market": "KR",
+    "name": "Hana Financial Group Inc.",
+    "sector": "Financial Services",
+    "active": true
+  },
+  {
     "ticker": "006400.KS",
     "market": "KR",
     "name": "Samsung SDI Co., Ltd.",
+    "sector": "Industrials",
+    "active": true
+  },
+  {
+    "ticker": "010120.KS",
+    "market": "KR",
+    "name": "LS ELECTRIC Co., Ltd.",
     "sector": "Industrials",
     "active": true
   },
@@ -3675,9 +3682,16 @@
     "active": true
   },
   {
-    "ticker": "010120.KS",
+    "ticker": "066570.KS",
     "market": "KR",
-    "name": "LS ELECTRIC Co., Ltd.",
+    "name": "LG Electronics Inc.",
+    "sector": "Technology",
+    "active": true
+  },
+  {
+    "ticker": "042660.KS",
+    "market": "KR",
+    "name": "Hanwha Ocean Co., Ltd.",
     "sector": "Industrials",
     "active": true
   },
@@ -3689,17 +3703,10 @@
     "active": true
   },
   {
-    "ticker": "042660.KS",
+    "ticker": "267260.KS",
     "market": "KR",
-    "name": "Hanwha Ocean Co., Ltd.",
+    "name": "HD Hyundai Electric Co., Ltd.",
     "sector": "Industrials",
-    "active": true
-  },
-  {
-    "ticker": "066570.KS",
-    "market": "KR",
-    "name": "LG Electronics Inc.",
-    "sector": "Technology",
     "active": true
   },
   {
@@ -3710,9 +3717,9 @@
     "active": true
   },
   {
-    "ticker": "267260.KS",
+    "ticker": "298040.KS",
     "market": "KR",
-    "name": "HD Hyundai Electric Co., Ltd.",
+    "name": "Hyosung Heavy Industries Corporation",
     "sector": "Industrials",
     "active": true
   },
@@ -3721,13 +3728,6 @@
     "market": "KR",
     "name": "Woori Financial Group Inc.",
     "sector": "Financial Services",
-    "active": true
-  },
-  {
-    "ticker": "298040.KS",
-    "market": "KR",
-    "name": "Hyosung Heavy Industries Corporation",
-    "sector": "Industrials",
     "active": true
   },
   {
@@ -3745,6 +3745,13 @@
     "active": true
   },
   {
+    "ticker": "000150.KS",
+    "market": "KR",
+    "name": "Doosan Corporation",
+    "sector": "Industrials",
+    "active": true
+  },
+  {
     "ticker": "138040.KS",
     "market": "KR",
     "name": "Meritz Financial Group Inc.",
@@ -3752,17 +3759,24 @@
     "active": true
   },
   {
-    "ticker": "042700.KS",
-    "market": "KR",
-    "name": "HANMI Semiconductor Co., Ltd.",
-    "sector": "Technology",
-    "active": true
-  },
-  {
     "ticker": "011200.KS",
     "market": "KR",
     "name": "HMM Co.,Ltd",
     "sector": "Industrials",
+    "active": true
+  },
+  {
+    "ticker": "017670.KS",
+    "market": "KR",
+    "name": "SK Telecom Co., Ltd.",
+    "sector": "Communication Services",
+    "active": true
+  },
+  {
+    "ticker": "042700.KS",
+    "market": "KR",
+    "name": "HANMI Semiconductor Co., Ltd.",
+    "sector": "Technology",
     "active": true
   },
   {
@@ -3780,24 +3794,17 @@
     "active": true
   },
   {
-    "ticker": "033780.KS",
-    "market": "KR",
-    "name": "KT&G Corporation",
-    "sector": "Consumer Defensive",
-    "active": true
-  },
-  {
-    "ticker": "000150.KS",
-    "market": "KR",
-    "name": "Doosan Corporation",
-    "sector": "Industrials",
-    "active": true
-  },
-  {
     "ticker": "096770.KS",
     "market": "KR",
     "name": "SK Innovation Co., Ltd.",
     "sector": "Energy",
+    "active": true
+  },
+  {
+    "ticker": "033780.KS",
+    "market": "KR",
+    "name": "KT&G Corporation",
+    "sector": "Consumer Defensive",
     "active": true
   },
   {
@@ -3808,31 +3815,10 @@
     "active": true
   },
   {
-    "ticker": "017670.KS",
+    "ticker": "079550.KS",
     "market": "KR",
-    "name": "SK Telecom Co., Ltd.",
-    "sector": "Communication Services",
-    "active": true
-  },
-  {
-    "ticker": "035720.KS",
-    "market": "KR",
-    "name": "Kakao Corp.",
-    "sector": "Communication Services",
-    "active": true
-  },
-  {
-    "ticker": "024110.KS",
-    "market": "KR",
-    "name": "Industrial Bank of Korea",
-    "sector": "Financial Services",
-    "active": true
-  },
-  {
-    "ticker": "267250.KS",
-    "market": "KR",
-    "name": "HD Hyundai Co., Ltd.",
-    "sector": "Energy",
+    "name": "LIG Defense&Aerospace Co., Ltd.",
+    "sector": "Industrials",
     "active": true
   },
   {
@@ -3843,6 +3829,27 @@
     "active": true
   },
   {
+    "ticker": "035720.KS",
+    "market": "KR",
+    "name": "Kakao Corp.",
+    "sector": "Communication Services",
+    "active": true
+  },
+  {
+    "ticker": "267250.KS",
+    "market": "KR",
+    "name": "HD Hyundai Co., Ltd.",
+    "sector": "Energy",
+    "active": true
+  },
+  {
+    "ticker": "024110.KS",
+    "market": "KR",
+    "name": "Industrial Bank of Korea",
+    "sector": "Financial Services",
+    "active": true
+  },
+  {
     "ticker": "003550.KS",
     "market": "KR",
     "name": "LG Corp.",
@@ -3850,16 +3857,16 @@
     "active": true
   },
   {
-    "ticker": "086280.KS",
+    "ticker": "064350.KS",
     "market": "KR",
-    "name": "Hyundai Glovis Co., Ltd.",
+    "name": "Hyundai Rotem Company",
     "sector": "Industrials",
     "active": true
   },
   {
-    "ticker": "079550.KS",
+    "ticker": "086280.KS",
     "market": "KR",
-    "name": "LIG Defense&Aerospace Co., Ltd.",
+    "name": "Hyundai Glovis Co., Ltd.",
     "sector": "Industrials",
     "active": true
   },
@@ -3871,9 +3878,16 @@
     "active": true
   },
   {
-    "ticker": "064350.KS",
+    "ticker": "278470.KS",
     "market": "KR",
-    "name": "Hyundai Rotem Company",
+    "name": "APR Co., Ltd.",
+    "sector": "Consumer Defensive",
+    "active": true
+  },
+  {
+    "ticker": "047810.KS",
+    "market": "KR",
+    "name": "Korea Aerospace Industries, Ltd.",
     "sector": "Industrials",
     "active": true
   },
@@ -3885,24 +3899,10 @@
     "active": true
   },
   {
-    "ticker": "047810.KS",
+    "ticker": "272210.KS",
     "market": "KR",
-    "name": "Korea Aerospace Industries, Ltd.",
+    "name": "Hanwha Systems Co., Ltd.",
     "sector": "Industrials",
-    "active": true
-  },
-  {
-    "ticker": "278470.KS",
-    "market": "KR",
-    "name": "APR Co., Ltd.",
-    "sector": "Consumer Defensive",
-    "active": true
-  },
-  {
-    "ticker": "011070.KS",
-    "market": "KR",
-    "name": "LG Innotek Co., Ltd.",
-    "sector": "Technology",
     "active": true
   },
   {
@@ -3913,9 +3913,16 @@
     "active": true
   },
   {
-    "ticker": "272210.KS",
+    "ticker": "011070.KS",
     "market": "KR",
-    "name": "Hanwha Systems Co., Ltd.",
+    "name": "LG Innotek Co., Ltd.",
+    "sector": "Technology",
+    "active": true
+  },
+  {
+    "ticker": "000720.KS",
+    "market": "KR",
+    "name": "Hyundai Engineering & Construction Co.,Ltd.",
     "sector": "Industrials",
     "active": true
   },
@@ -3934,16 +3941,16 @@
     "active": true
   },
   {
-    "ticker": "323410.KS",
+    "ticker": "307950.KS",
     "market": "KR",
-    "name": "KakaoBank Corp.",
-    "sector": "Financial Services",
+    "name": "Hyundai Autoever Corporation",
+    "sector": "Technology",
     "active": true
   },
   {
-    "ticker": "005830.KS",
+    "ticker": "323410.KS",
     "market": "KR",
-    "name": "DB Insurance Co., Ltd.",
+    "name": "KakaoBank Corp.",
     "sector": "Financial Services",
     "active": true
   },
@@ -3955,17 +3962,10 @@
     "active": true
   },
   {
-    "ticker": "000720.KS",
+    "ticker": "005830.KS",
     "market": "KR",
-    "name": "Hyundai Engineering & Construction Co.,Ltd.",
-    "sector": "Industrials",
-    "active": true
-  },
-  {
-    "ticker": "307950.KS",
-    "market": "KR",
-    "name": "Hyundai Autoever Corporation",
-    "sector": "Technology",
+    "name": "DB Insurance Co., Ltd.",
+    "sector": "Financial Services",
     "active": true
   },
   {
@@ -3983,17 +3983,10 @@
     "active": true
   },
   {
-    "ticker": "003230.KS",
+    "ticker": "006260.KS",
     "market": "KR",
-    "name": "Samyang Foods Co., Ltd.",
-    "sector": "Consumer Defensive",
-    "active": true
-  },
-  {
-    "ticker": "016360.KS",
-    "market": "KR",
-    "name": "Samsung Securities Co.,Ltd.",
-    "sector": "Financial Services",
+    "name": "LS Corp.",
+    "sector": "Industrials",
     "active": true
   },
   {
@@ -4004,17 +3997,10 @@
     "active": true
   },
   {
-    "ticker": "161390.KS",
+    "ticker": "003230.KS",
     "market": "KR",
-    "name": "Hankook Tire & Technology Co., Ltd.",
-    "sector": "Consumer Cyclical",
-    "active": true
-  },
-  {
-    "ticker": "006260.KS",
-    "market": "KR",
-    "name": "LS Corp.",
-    "sector": "Industrials",
+    "name": "Samyang Foods Co., Ltd.",
+    "sector": "Consumer Defensive",
     "active": true
   },
   {
@@ -4025,24 +4011,24 @@
     "active": true
   },
   {
+    "ticker": "016360.KS",
+    "market": "KR",
+    "name": "Samsung Securities Co.,Ltd.",
+    "sector": "Financial Services",
+    "active": true
+  },
+  {
+    "ticker": "161390.KS",
+    "market": "KR",
+    "name": "Hankook Tire & Technology Co., Ltd.",
+    "sector": "Consumer Cyclical",
+    "active": true
+  },
+  {
     "ticker": "443060.KS",
     "market": "KR",
     "name": "HD Hyundai Marine Solution CO.,LTD.",
     "sector": "Industrials",
-    "active": true
-  },
-  {
-    "ticker": "090430.KS",
-    "market": "KR",
-    "name": "Amorepacific Corporation",
-    "sector": "Consumer Defensive",
-    "active": true
-  },
-  {
-    "ticker": "039490.KS",
-    "market": "KR",
-    "name": "Kiwoom Securities Co., Ltd.",
-    "sector": "Financial Services",
     "active": true
   },
   {
@@ -4060,10 +4046,31 @@
     "active": true
   },
   {
+    "ticker": "090430.KS",
+    "market": "KR",
+    "name": "Amorepacific Corporation",
+    "sector": "Consumer Defensive",
+    "active": true
+  },
+  {
+    "ticker": "039490.KS",
+    "market": "KR",
+    "name": "Kiwoom Securities Co., Ltd.",
+    "sector": "Financial Services",
+    "active": true
+  },
+  {
     "ticker": "021240.KS",
     "market": "KR",
     "name": "COWAY Co., Ltd.",
     "sector": "Consumer Cyclical",
+    "active": true
+  },
+  {
+    "ticker": "064400.KS",
+    "market": "KR",
+    "name": "LG CNS",
+    "sector": "Technology",
     "active": true
   },
   {
@@ -4081,10 +4088,10 @@
     "active": true
   },
   {
-    "ticker": "064400.KS",
+    "ticker": "047040.KS",
     "market": "KR",
-    "name": "LG CNS",
-    "sector": "Technology",
+    "name": "Daewoo Engineering & Construction Co., Ltd.",
+    "sector": "Industrials",
     "active": true
   },
   {
@@ -4095,9 +4102,9 @@
     "active": true
   },
   {
-    "ticker": "000880.KS",
+    "ticker": "241560.KS",
     "market": "KR",
-    "name": "Hanwha Corporation",
+    "name": "Doosan Bobcat Inc.",
     "sector": "Industrials",
     "active": true
   },
@@ -4109,16 +4116,23 @@
     "active": true
   },
   {
-    "ticker": "241560.KS",
+    "ticker": "377300.KS",
     "market": "KR",
-    "name": "Doosan Bobcat Inc.",
+    "name": "Kakao Pay Corp.",
+    "sector": "Technology",
+    "active": true
+  },
+  {
+    "ticker": "000880.KS",
+    "market": "KR",
+    "name": "Hanwha Corporation",
     "sector": "Industrials",
     "active": true
   },
   {
-    "ticker": "377300.KS",
+    "ticker": "007660.KS",
     "market": "KR",
-    "name": "Kakao Pay Corp.",
+    "name": "ISU Petasys Co., Ltd.",
     "sector": "Technology",
     "active": true
   },
@@ -4130,24 +4144,10 @@
     "active": true
   },
   {
-    "ticker": "007660.KS",
-    "market": "KR",
-    "name": "ISU Petasys Co., Ltd.",
-    "sector": "Technology",
-    "active": true
-  },
-  {
     "ticker": "271560.KS",
     "market": "KR",
     "name": "ORION Corp.",
     "sector": "Consumer Defensive",
-    "active": true
-  },
-  {
-    "ticker": "047040.KS",
-    "market": "KR",
-    "name": "Daewoo Engineering & Construction Co., Ltd.",
-    "sector": "Industrials",
     "active": true
   },
   {
@@ -4165,13 +4165,6 @@
     "active": true
   },
   {
-    "ticker": "138930.KS",
-    "market": "KR",
-    "name": "BNK Financial Group Inc.",
-    "sector": "Financial Services",
-    "active": true
-  },
-  {
     "ticker": "001440.KS",
     "market": "KR",
     "name": "Taihan Cable & Solution Co., Ltd.",
@@ -4179,10 +4172,24 @@
     "active": true
   },
   {
+    "ticker": "128940.KS",
+    "market": "KR",
+    "name": "Hanmi Pharm. Co., Ltd.",
+    "sector": "Healthcare",
+    "active": true
+  },
+  {
     "ticker": "034220.KS",
     "market": "KR",
     "name": "LG Display Co., Ltd.",
     "sector": "Technology",
+    "active": true
+  },
+  {
+    "ticker": "138930.KS",
+    "market": "KR",
+    "name": "BNK Financial Group Inc.",
+    "sector": "Financial Services",
     "active": true
   },
   {
@@ -4200,6 +4207,13 @@
     "active": true
   },
   {
+    "ticker": "454910.KS",
+    "market": "KR",
+    "name": "Doosan Robotics Inc.",
+    "sector": "Industrials",
+    "active": true
+  },
+  {
     "ticker": "051900.KS",
     "market": "KR",
     "name": "LG H&H Co., Ltd.",
@@ -4207,10 +4221,10 @@
     "active": true
   },
   {
-    "ticker": "128940.KS",
+    "ticker": "010060.KS",
     "market": "KR",
-    "name": "Hanmi Pharm. Co., Ltd.",
-    "sector": "Healthcare",
+    "name": "OCI Holdings Company Ltd.",
+    "sector": "Financial Services",
     "active": true
   },
   {
@@ -4221,44 +4235,9 @@
     "active": true
   },
   {
-    "ticker": "454910.KS",
-    "market": "KR",
-    "name": "Doosan Robotics Inc.",
-    "sector": "Industrials",
-    "active": true
-  },
-  {
     "ticker": "111770.KS",
     "market": "KR",
     "name": "Youngone Corporation",
-    "sector": "Consumer Cyclical",
-    "active": true
-  },
-  {
-    "ticker": "088350.KS",
-    "market": "KR",
-    "name": "Hanwha Life Insurance Co., Ltd.",
-    "sector": "Financial Services",
-    "active": true
-  },
-  {
-    "ticker": "001040.KS",
-    "market": "KR",
-    "name": "CJ Corporation",
-    "sector": "Industrials",
-    "active": true
-  },
-  {
-    "ticker": "000990.KS",
-    "market": "KR",
-    "name": "DB HiTek CO., LTD.",
-    "sector": "Technology",
-    "active": true
-  },
-  {
-    "ticker": "018880.KS",
-    "market": "KR",
-    "name": "Hanon Systems",
     "sector": "Consumer Cyclical",
     "active": true
   },
@@ -4270,23 +4249,9 @@
     "active": true
   },
   {
-    "ticker": "010060.KS",
+    "ticker": "001040.KS",
     "market": "KR",
-    "name": "OCI Holdings Company Ltd.",
-    "sector": "Financial Services",
-    "active": true
-  },
-  {
-    "ticker": "004020.KS",
-    "market": "KR",
-    "name": "Hyundai Steel Company",
-    "sector": "Basic Materials",
-    "active": true
-  },
-  {
-    "ticker": "082740.KS",
-    "market": "KR",
-    "name": "Hanwha Engine Co., Ltd.",
+    "name": "CJ Corporation",
     "sector": "Industrials",
     "active": true
   },
@@ -4298,10 +4263,45 @@
     "active": true
   },
   {
+    "ticker": "088350.KS",
+    "market": "KR",
+    "name": "Hanwha Life Insurance Co., Ltd.",
+    "sector": "Financial Services",
+    "active": true
+  },
+  {
+    "ticker": "000990.KS",
+    "market": "KR",
+    "name": "DB HiTek CO., LTD.",
+    "sector": "Technology",
+    "active": true
+  },
+  {
+    "ticker": "004020.KS",
+    "market": "KR",
+    "name": "Hyundai Steel Company",
+    "sector": "Basic Materials",
+    "active": true
+  },
+  {
+    "ticker": "018880.KS",
+    "market": "KR",
+    "name": "Hanon Systems",
+    "sector": "Consumer Cyclical",
+    "active": true
+  },
+  {
     "ticker": "002380.KS",
     "market": "KR",
     "name": "KCC Corporation",
     "sector": "Basic Materials",
+    "active": true
+  },
+  {
+    "ticker": "082740.KS",
+    "market": "KR",
+    "name": "Hanwha Engine Co., Ltd.",
+    "sector": "Industrials",
     "active": true
   },
   {
@@ -4312,45 +4312,10 @@
     "active": true
   },
   {
-    "ticker": "001450.KS",
-    "market": "KR",
-    "name": "Hyundai Marine & Fire Insurance Co., Ltd.",
-    "sector": "Financial Services",
-    "active": true
-  },
-  {
-    "ticker": "036460.KS",
-    "market": "KR",
-    "name": "Korea Gas Corporation",
-    "sector": "Utilities",
-    "active": true
-  },
-  {
     "ticker": "251270.KS",
     "market": "KR",
     "name": "Netmarble Corporation",
     "sector": "Communication Services",
-    "active": true
-  },
-  {
-    "ticker": "035250.KS",
-    "market": "KR",
-    "name": "Kangwon Land, Inc.",
-    "sector": "Consumer Cyclical",
-    "active": true
-  },
-  {
-    "ticker": "383220.KS",
-    "market": "KR",
-    "name": "F&F Co., Ltd",
-    "sector": "Consumer Cyclical",
-    "active": true
-  },
-  {
-    "ticker": "028670.KS",
-    "market": "KR",
-    "name": "Pan Ocean Co., Ltd.",
-    "sector": "Industrials",
     "active": true
   },
   {
@@ -4361,6 +4326,27 @@
     "active": true
   },
   {
+    "ticker": "036460.KS",
+    "market": "KR",
+    "name": "Korea Gas Corporation",
+    "sector": "Utilities",
+    "active": true
+  },
+  {
+    "ticker": "001450.KS",
+    "market": "KR",
+    "name": "Hyundai Marine & Fire Insurance Co., Ltd.",
+    "sector": "Financial Services",
+    "active": true
+  },
+  {
+    "ticker": "035250.KS",
+    "market": "KR",
+    "name": "Kangwon Land, Inc.",
+    "sector": "Consumer Cyclical",
+    "active": true
+  },
+  {
     "ticker": "022100.KS",
     "market": "KR",
     "name": "Posco Dx Company Ltd.",
@@ -4368,9 +4354,16 @@
     "active": true
   },
   {
-    "ticker": "097950.KS",
+    "ticker": "028670.KS",
     "market": "KR",
-    "name": "CJ Cheiljedang Corporation",
+    "name": "Pan Ocean Co., Ltd.",
+    "sector": "Industrials",
+    "active": true
+  },
+  {
+    "ticker": "483650.KS",
+    "market": "KR",
+    "name": "d'Alba Global",
     "sector": "Consumer Defensive",
     "active": true
   },
@@ -4382,9 +4375,9 @@
     "active": true
   },
   {
-    "ticker": "483650.KS",
+    "ticker": "097950.KS",
     "market": "KR",
-    "name": "d'Alba Global",
+    "name": "CJ Cheiljedang Corporation",
     "sector": "Consumer Defensive",
     "active": true
   },
@@ -4410,9 +4403,30 @@
     "active": true
   },
   {
+    "ticker": "009420.KS",
+    "market": "KR",
+    "name": "Hanall Biopharma Co., Ltd.",
+    "sector": "Healthcare",
+    "active": true
+  },
+  {
     "ticker": "017800.KS",
     "market": "KR",
     "name": "Hyundai Elevator Co., Ltd",
+    "sector": "Industrials",
+    "active": true
+  },
+  {
+    "ticker": "008930.KS",
+    "market": "KR",
+    "name": "Hanmi Science Co., Ltd.",
+    "sector": "Healthcare",
+    "active": true
+  },
+  {
+    "ticker": "375500.KS",
+    "market": "KR",
+    "name": "DL E&C Co.,Ltd.",
     "sector": "Industrials",
     "active": true
   },
@@ -4431,20 +4445,6 @@
     "active": true
   },
   {
-    "ticker": "008930.KS",
-    "market": "KR",
-    "name": "Hanmi Science Co., Ltd.",
-    "sector": "Healthcare",
-    "active": true
-  },
-  {
-    "ticker": "009970.KS",
-    "market": "KR",
-    "name": "Youngone Holdings Co., Ltd.",
-    "sector": "Consumer Cyclical",
-    "active": true
-  },
-  {
     "ticker": "005850.KS",
     "market": "KR",
     "name": "SL Corporation",
@@ -4452,9 +4452,16 @@
     "active": true
   },
   {
-    "ticker": "081660.KS",
+    "ticker": "007340.KS",
     "market": "KR",
-    "name": "Misto Holdings Corp.",
+    "name": "DN Automotive Corporation",
+    "sector": "Consumer Cyclical",
+    "active": true
+  },
+  {
+    "ticker": "009970.KS",
+    "market": "KR",
+    "name": "Youngone Holdings Co., Ltd.",
     "sector": "Consumer Cyclical",
     "active": true
   },
@@ -4466,38 +4473,10 @@
     "active": true
   },
   {
-    "ticker": "000240.KS",
+    "ticker": "383220.KS",
     "market": "KR",
-    "name": "Hankook & Company Co., Ltd.",
+    "name": "F&F Co., Ltd",
     "sector": "Consumer Cyclical",
-    "active": true
-  },
-  {
-    "ticker": "004370.KS",
-    "market": "KR",
-    "name": "Nongshim Co., Ltd.",
-    "sector": "Consumer Defensive",
-    "active": true
-  },
-  {
-    "ticker": "009420.KS",
-    "market": "KR",
-    "name": "Hanall Biopharma Co., Ltd.",
-    "sector": "Healthcare",
-    "active": true
-  },
-  {
-    "ticker": "450080.KS",
-    "market": "KR",
-    "name": "ECOPRO MAT",
-    "sector": "Industrials",
-    "active": true
-  },
-  {
-    "ticker": "004990.KS",
-    "market": "KR",
-    "name": "LOTTE Corporation",
-    "sector": "Consumer Defensive",
     "active": true
   },
   {
@@ -4508,6 +4487,27 @@
     "active": true
   },
   {
+    "ticker": "000240.KS",
+    "market": "KR",
+    "name": "Hankook & Company Co., Ltd.",
+    "sector": "Consumer Cyclical",
+    "active": true
+  },
+  {
+    "ticker": "081660.KS",
+    "market": "KR",
+    "name": "Misto Holdings Corp.",
+    "sector": "Consumer Cyclical",
+    "active": true
+  },
+  {
+    "ticker": "450080.KS",
+    "market": "KR",
+    "name": "ECOPRO MAT",
+    "sector": "Industrials",
+    "active": true
+  },
+  {
     "ticker": "014680.KS",
     "market": "KR",
     "name": "Hansol Chemical Co., Ltd.",
@@ -4515,37 +4515,23 @@
     "active": true
   },
   {
-    "ticker": "375500.KS",
+    "ticker": "004370.KS",
     "market": "KR",
-    "name": "DL E&C Co.,Ltd.",
-    "sector": "Industrials",
-    "active": true
-  },
-  {
-    "ticker": "007340.KS",
-    "market": "KR",
-    "name": "DN Automotive Corporation",
-    "sector": "Consumer Cyclical",
-    "active": true
-  },
-  {
-    "ticker": "139480.KS",
-    "market": "KR",
-    "name": "E-MART Inc.",
+    "name": "Nongshim Co., Ltd.",
     "sector": "Consumer Defensive",
     "active": true
   },
   {
-    "ticker": "030000.KS",
+    "ticker": "204320.KS",
     "market": "KR",
-    "name": "Cheil Worldwide Inc.",
-    "sector": "Communication Services",
+    "name": "HL Mando Corporation",
+    "sector": "Consumer Cyclical",
     "active": true
   },
   {
-    "ticker": "282330.KS",
+    "ticker": "004990.KS",
     "market": "KR",
-    "name": "BGF Retail Co., Ltd.",
+    "name": "LOTTE Corporation",
     "sector": "Consumer Defensive",
     "active": true
   },
@@ -4557,23 +4543,30 @@
     "active": true
   },
   {
+    "ticker": "139480.KS",
+    "market": "KR",
+    "name": "E-MART Inc.",
+    "sector": "Consumer Defensive",
+    "active": true
+  },
+  {
+    "ticker": "282330.KS",
+    "market": "KR",
+    "name": "BGF Retail Co., Ltd.",
+    "sector": "Consumer Defensive",
+    "active": true
+  },
+  {
+    "ticker": "030000.KS",
+    "market": "KR",
+    "name": "Cheil Worldwide Inc.",
+    "sector": "Communication Services",
+    "active": true
+  },
+  {
     "ticker": "007070.KS",
     "market": "KR",
     "name": "GS Retail Co., Ltd.",
-    "sector": "Consumer Cyclical",
-    "active": true
-  },
-  {
-    "ticker": "204320.KS",
-    "market": "KR",
-    "name": "HL Mando Corporation",
-    "sector": "Consumer Cyclical",
-    "active": true
-  },
-  {
-    "ticker": "073240.KS",
-    "market": "KR",
-    "name": "Kumho Tire Co., Inc.",
     "sector": "Consumer Cyclical",
     "active": true
   },
@@ -4582,6 +4575,13 @@
     "market": "KR",
     "name": "KEPCO Plant Service & Engineering Co.,Ltd.",
     "sector": "Industrials",
+    "active": true
+  },
+  {
+    "ticker": "073240.KS",
+    "market": "KR",
+    "name": "Kumho Tire Co., Inc.",
+    "sector": "Consumer Cyclical",
     "active": true
   },
   {
@@ -4599,17 +4599,17 @@
     "active": true
   },
   {
-    "ticker": "008770.KS",
-    "market": "KR",
-    "name": "Hotel Shilla Co.,Ltd",
-    "sector": "Consumer Cyclical",
-    "active": true
-  },
-  {
     "ticker": "071970.KS",
     "market": "KR",
     "name": "HD-Hyundai Marine Engine Co., Ltd.",
     "sector": "Industrials",
+    "active": true
+  },
+  {
+    "ticker": "457190.KS",
+    "market": "KR",
+    "name": "ISU Specialty Chemical Co., Ltd.",
+    "sector": null,
     "active": true
   },
   {
@@ -4627,10 +4627,10 @@
     "active": true
   },
   {
-    "ticker": "457190.KS",
+    "ticker": "011210.KS",
     "market": "KR",
-    "name": "ISU Specialty Chemical Co., Ltd.",
-    "sector": null,
+    "name": "Hyundai Wia Corporation",
+    "sector": "Consumer Cyclical",
     "active": true
   },
   {
@@ -4641,17 +4641,10 @@
     "active": true
   },
   {
-    "ticker": "011210.KS",
+    "ticker": "008770.KS",
     "market": "KR",
-    "name": "Hyundai Wia Corporation",
+    "name": "Hotel Shilla Co.,Ltd",
     "sector": "Consumer Cyclical",
-    "active": true
-  },
-  {
-    "ticker": "001800.KS",
-    "market": "KR",
-    "name": "ORION Holdings Corp.",
-    "sector": "Consumer Defensive",
     "active": true
   },
   {
@@ -4662,16 +4655,23 @@
     "active": true
   },
   {
-    "ticker": "006280.KS",
+    "ticker": "001800.KS",
     "market": "KR",
-    "name": "GC Biopharma Corp.",
-    "sector": "Healthcare",
+    "name": "ORION Holdings Corp.",
+    "sector": "Consumer Defensive",
     "active": true
   },
   {
     "ticker": "069620.KS",
     "market": "KR",
     "name": "Daewoong Pharmaceutical Co., Ltd",
+    "sector": "Healthcare",
+    "active": true
+  },
+  {
+    "ticker": "006280.KS",
+    "market": "KR",
+    "name": "GC Biopharma Corp.",
     "sector": "Healthcare",
     "active": true
   },
@@ -4683,10 +4683,10 @@
     "active": true
   },
   {
-    "ticker": "007310.KS",
+    "ticker": "001430.KS",
     "market": "KR",
-    "name": "Otoki Corporation",
-    "sector": "Consumer Defensive",
+    "name": "SeAH Besteel Holdings Corporation",
+    "sector": "Basic Materials",
     "active": true
   },
   {
@@ -4697,10 +4697,10 @@
     "active": true
   },
   {
-    "ticker": "001430.KS",
+    "ticker": "007310.KS",
     "market": "KR",
-    "name": "SeAH Besteel Holdings Corporation",
-    "sector": "Basic Materials",
+    "name": "Otoki Corporation",
+    "sector": "Consumer Defensive",
     "active": true
   },
   {
@@ -4711,9 +4711,23 @@
     "active": true
   },
   {
+    "ticker": "361610.KS",
+    "market": "KR",
+    "name": "SK IE Technology Co., Ltd.",
+    "sector": "Technology",
+    "active": true
+  },
+  {
     "ticker": "017960.KS",
     "market": "KR",
     "name": "Hankuk Carbon Co., Ltd.",
+    "sector": "Basic Materials",
+    "active": true
+  },
+  {
+    "ticker": "000210.KS",
+    "market": "KR",
+    "name": "DL Holdings CO., LTD.",
     "sector": "Basic Materials",
     "active": true
   },
@@ -4725,10 +4739,10 @@
     "active": true
   },
   {
-    "ticker": "361610.KS",
+    "ticker": "093370.KS",
     "market": "KR",
-    "name": "SK IE Technology Co., Ltd.",
-    "sector": "Technology",
+    "name": "Foosung Co., Ltd.",
+    "sector": "Basic Materials",
     "active": true
   },
   {
@@ -4736,13 +4750,6 @@
     "market": "KR",
     "name": "Hanil Cement Co., Ltd.",
     "sector": "Basic Materials",
-    "active": true
-  },
-  {
-    "ticker": "280360.KS",
-    "market": "KR",
-    "name": "Lotte Wellfood Co.,Ltd",
-    "sector": "Consumer Defensive",
     "active": true
   },
   {
@@ -4760,13 +4767,6 @@
     "active": true
   },
   {
-    "ticker": "093370.KS",
-    "market": "KR",
-    "name": "Foosung Co., Ltd.",
-    "sector": "Basic Materials",
-    "active": true
-  },
-  {
     "ticker": "005300.KS",
     "market": "KR",
     "name": "Lotte Chilsung Beverage Co., Ltd.",
@@ -4774,10 +4774,10 @@
     "active": true
   },
   {
-    "ticker": "009240.KS",
+    "ticker": "280360.KS",
     "market": "KR",
-    "name": "Hanssem Co., Ltd.",
-    "sector": "Consumer Cyclical",
+    "name": "Lotte Wellfood Co.,Ltd",
+    "sector": "Consumer Defensive",
     "active": true
   },
   {
@@ -4795,17 +4795,10 @@
     "active": true
   },
   {
-    "ticker": "000210.KS",
+    "ticker": "009240.KS",
     "market": "KR",
-    "name": "DL Holdings CO., LTD.",
-    "sector": "Basic Materials",
-    "active": true
-  },
-  {
-    "ticker": "071320.KS",
-    "market": "KR",
-    "name": "Korea District Heating Corp.",
-    "sector": "Utilities",
+    "name": "Hanssem Co., Ltd.",
+    "sector": "Consumer Cyclical",
     "active": true
   },
   {
@@ -4813,6 +4806,13 @@
     "market": "KR",
     "name": "SD Biosensor, Inc.",
     "sector": "Healthcare",
+    "active": true
+  },
+  {
+    "ticker": "071320.KS",
+    "market": "KR",
+    "name": "Korea District Heating Corp.",
+    "sector": "Utilities",
     "active": true
   },
   {
@@ -4826,6 +4826,13 @@
     "ticker": "285130.KS",
     "market": "KR",
     "name": "SK Chemicals Co.,Ltd",
+    "sector": "Basic Materials",
+    "active": true
+  },
+  {
+    "ticker": "456040.KS",
+    "market": "KR",
+    "name": "OCI Company Ltd.",
     "sector": "Basic Materials",
     "active": true
   },
@@ -4844,13 +4851,6 @@
     "active": true
   },
   {
-    "ticker": "456040.KS",
-    "market": "KR",
-    "name": "OCI Company Ltd.",
-    "sector": "Basic Materials",
-    "active": true
-  },
-  {
     "ticker": "069260.KS",
     "market": "KR",
     "name": "TKG Huchems Co., Ltd.",
@@ -4865,6 +4865,13 @@
     "active": true
   },
   {
+    "ticker": "006650.KS",
+    "market": "KR",
+    "name": "Korea Petrochemical Ind. Co., Ltd.",
+    "sector": "Basic Materials",
+    "active": true
+  },
+  {
     "ticker": "268280.KS",
     "market": "KR",
     "name": "Miwon Specialty Chemical Co., Ltd.",
@@ -4875,13 +4882,6 @@
     "ticker": "002840.KS",
     "market": "KR",
     "name": "Miwon Commercial Co., Ltd.",
-    "sector": "Basic Materials",
-    "active": true
-  },
-  {
-    "ticker": "006650.KS",
-    "market": "KR",
-    "name": "Korea Petrochemical Ind. Co., Ltd.",
     "sector": "Basic Materials",
     "active": true
   },
@@ -4900,17 +4900,17 @@
     "active": true
   },
   {
-    "ticker": "008730.KS",
-    "market": "KR",
-    "name": "Youlchon Chemical Co.,Ltd.",
-    "sector": "Consumer Cyclical",
-    "active": true
-  },
-  {
     "ticker": "005420.KS",
     "market": "KR",
     "name": "Cosmo Chemical Co., Ltd.",
     "sector": "Basic Materials",
+    "active": true
+  },
+  {
+    "ticker": "008730.KS",
+    "market": "KR",
+    "name": "Youlchon Chemical Co.,Ltd.",
+    "sector": "Consumer Cyclical",
     "active": true
   }
 ]
