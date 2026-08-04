@@ -116,7 +116,7 @@ export default async function StockPage({
           <Metric label="PBR" value={numLabel(snapshot.pbr, 2)} />
           <Metric
             label="PER 섹터 백분위"
-            value={pctLabel(snapshot.per_pctile_in_sector, { sign: false, digits: 0 })}
+            value={pctLabel(snapshot.per_pctile_in_sector, { scale: 1, sign: false, digits: 0 })}
           />
           <Metric label="부채비율" value={numLabel(snapshot.debt_to_equity, 1)} />
         </div>
