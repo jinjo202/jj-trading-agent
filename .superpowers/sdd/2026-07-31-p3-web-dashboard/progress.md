@@ -46,3 +46,13 @@ Task 6: 라이브 검증에서 버그 1건 발견·수정 — marketCapLabel이 
 Task 6: 미착수로 남긴 것 — spec §8.2의 리포트 요청 큐(report_requests INSERT + API 라우트).
   P3 plan에 태스크가 없고 Task 6 범위 밖이다. 테이블과 RLS는 이미 있으므로 후속 작업으로
   붙이면 된다. 현재는 "일일 실행에서 생성됩니다" 안내로 대체.
+Task 7: complete. Vercel 배포. URL: https://jj-trading-agent.vercel.app (계정 jinjo202-8902s-projects).
+  HANDOVER.md §6 원안(GitHub Import)이 아니라 별도 인증된 Vercel MCP의 deploy_to_vercel(파일 트리
+  직접 업로드)로 배포 — 이 환경엔 vercel CLI/OAuth가 없었으나 이 MCP 커넥터는 이미 인증돼 있었다.
+  1차 시도는 lib/format.ts를 파일 목록에서 빠뜨려 5개 모듈 Module not found로 빌드 실패, 2차 시도에서
+  추가해 성공. env는 프로젝트 설정이 아니라 배포 파일 트리의 .env.production으로 주입(도구에 env API
+  없음) — NEXT_PUBLIC_* 둘 다 공개 가능한 값이라 문제 없음, SERVICE_ROLE_KEY는 미포함.
+  package-lock.json은 제외(Vercel이 npm install로 새로 설치). /, /history, /stock/US/AAPL 실제 접속
+  확인 — 전부 200, 콘솔 에러 없음, DB 0행이라 빈 상태 문구만 표시(정상).
+  한계: git 연동이 아니라서 push해도 자동 재배포 안 됨. 다음 코드 변경은 재배포 필요, HANDOVER.md §6에
+  전환 절차 기록.

@@ -23,7 +23,7 @@
 |---|---|---|
 | P1 | 수집 파이프라인 (데이터 소스, 지표 계산, 스냅샷) | **완료** |
 | P2 | 분석 파이프라인 (agent 프롬프트 9개, 스크리너, 발행) | **완료** |
-| P3 | 웹 대시보드 | **7개 중 6개 완료** |
+| P3 | 웹 대시보드 | **완료 (7/7)** |
 | P4 | 자동화 (pg_cron 수집, 작업 스케줄러 분석) | 미착수 |
 
 ### P3 세부
@@ -36,7 +36,7 @@
 | 4 | `/history` 페이지 | 완료 |
 | 5 | `/agents/[date]` 페이지 | 완료 |
 | 6 | `/stock/[market]/[ticker]` 기업 1장 리포트 | 완료 |
-| **7** | **Vercel 배포** | **미착수 (인증 필요, §6 참조)** |
+| 7 | Vercel 배포 | 완료 (§6 참조) |
 
 Task 6은 "종목 클릭 → 1장짜리 기업 분석 리포트" 기능이다. `/`의 추천 종목 카드가 이미
 `/stock/{market}/{ticker}`로 링크되어 있어서 클릭 경로가 연결되었다.
@@ -189,40 +189,35 @@ npm run publish:run     # agent_reports + daily_verdicts + company_reports 기�
 
 ---
 
-## 6. Vercel 배포 — 현재 상태와 남은 절차
+## 6. Vercel 배포 — 완료
 
-**배포는 완료하지 못했다.** 이 환경에 Vercel 인증 수단이 없다.
+**배포 완료.** URL: https://jj-trading-agent.vercel.app (계정: `jinjo202-8902s-projects`, 프로젝트 `jj-trading-agent`).
+`/`, `/history`, `/stock/US/AAPL` 실제 접속 확인 — 전부 200, 콘솔 에러 없음, DB가 비어 있어 빈 상태 문구만 표시(§3(1) 때문이며 정상).
 
-- `vercel` CLI 미설치
-- `VERCEL_TOKEN` 환경변수 없음
-- Vercel MCP 서버는 OAuth 미승인이고, 이 세션은 비대화형이라 OAuth 플로우를 실행할 수 없음
+**배포 방식이 §6 원안과 다르다.** GitHub 연동이 아니라 Vercel MCP의 `deploy_to_vercel`(파일 트리 직접 업로드)로 배포했다.
+이 환경엔 GitHub 저장소 Import를 수행할 CLI/OAuth 수단이 없었지만, 별도 인증된 Vercel MCP 커넥터가 있어 그걸로 우회했다.
 
-빌드 자체는 통과하는 것을 확인했으므로, 아래 절차만 밟으면 바로 뜬다.
-PC를 바꾸는 상황이라면 **CLI보다 GitHub 연동이 낫다.** 푸시할 때마다 자동 배포되고 로컬 설치가 필요 없다.
+**이것이 의미하는 것 — 다음 작업자가 반드시 알아야 함:**
 
-1. https://vercel.com/new 접속
-2. `devbotsender8282/jj-trading-agent` 리포지토리 Import
+- **`git push`해도 자동 재배포되지 않는다.** GitHub 연동이 아니므로 이 배포는 이 순간의 `web/` 스냅샷일 뿐이다.
+  이후 코드를 바꾸면 같은 방식(`deploy_to_vercel`)으로 다시 배포하거나, 아래 GitHub 연동 절차로 전환해야 한다.
+- `package-lock.json`은 배포에 포함하지 않았다(75KB, 불필요). Vercel이 `npm install`로 새로 설치했다.
+  재현성이 중요해지면 lockfile 포함 배포나 git 연동으로 바꿔라.
+- env 변수는 Vercel 프로젝트 설정이 아니라 배포 파일 트리 안의 `.env.production`으로 주입했다
+  (`deploy_to_vercel` 도구에 env 변수 설정 API가 없음). `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` 둘 다 공개해도 되는 값이라 문제 없다.
+  `SUPABASE_SERVICE_ROLE_KEY`는 물론 넣지 않았다.
+- **첫 배포 시도는 실패했다** — `lib/format.ts`를 파일 목록에서 빠뜨려 5개 모듈이 `Module not found`로 빌드 실패.
+  두 번째 시도에서 추가해서 성공했다. 파일 기반 배포는 git처럼 전체 트리를 자동으로 안 챙겨주므로, 새로 배포할 때
+  `git ls-files`로 대상 파일 목록을 다시 뽑아 빠짐없이 포함해야 한다.
+
+**GitHub 연동으로 전환하려면** (git push마다 자동 배포를 원할 때):
+
+1. https://vercel.com/jinjo202-8902s-projects/jj-trading-agent → Settings → Git 에서 저장소 연결, 또는
+2. https://vercel.com/new 에서 `devbotsender8282/jj-trading-agent`를 새로 Import
 3. **Root Directory 를 `web` 으로 지정** ← 리포지토리 루트가 Next.js 앱이 아니다. 이걸 빼먹으면 빌드가 실패한다.
-4. Framework Preset: Next.js (자동 감지됨)
-5. Environment Variables 에 2개 추가
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`는 **넣지 마라.** 웹앱은 읽기만 한다.
-6. **Production Branch 를 `p3-web-dashboard` 로 바꾼다** ← 이걸 안 하면 옛 코드가 배포된다.
-
-   Vercel 은 기본적으로 리포지토리의 default branch(`master`)를 프로덕션으로 삼는다.
-   그런데 `master`는 `bf6a30b`에 멈춰 있고 **대시보드 페이지가 하나도 없는 시점**이다.
-   P3의 모든 작업(`/`, `/history`, `/agents/[date]`, `/stock/...`)은 `p3-web-dashboard`에만 있다.
-   기본값으로 두면 빈 앱이 배포된다.
-
+4. Environment Variables 에 `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` 추가 (`SUPABASE_SERVICE_ROLE_KEY`는 넣지 마라)
+5. **Production Branch 를 `p3-web-dashboard` 로 바꾼다** ← 기본값(`master`)은 `bf6a30b`에 멈춰 있어 대시보드 페이지가 하나도 없다.
    대안: `p3-web-dashboard`를 `master`에 머지하면 기본값 그대로 써도 된다.
-   브랜치는 테스트·타입체크·빌드가 전부 통과한 상태라 머지 가능하다.
-
-7. Deploy
-
-배포 직후 대시보드는 비어 있다. §3(1) 때문이며 정상이다. 파이프라인을 한 번 돌리면 채워진다.
-
-`VERCEL_TOKEN`을 발급해서 알려주면(Vercel → Account Settings → Tokens) 이 절차 없이 CLI로 바로 배포할 수 있다.
 
 ---
 
@@ -308,9 +303,9 @@ supabase/migrations/0001_trading_agent_schema.sql
 2. `npm run universe` → `collect` → `candidates` → `prepare:bundle` → `/daily` → `publish:run`을
    한 번 완주해서 `daily_verdicts`에 실제 1행을 만든다. 이게 전체 파이프라인의 첫 실증이다.
    지금까지 모든 화면 검증은 빈 DB 또는 더미 1행 기준이므로, 실데이터로 도는 것은 아직 미확인이다.
-3. P3 Task 7: Vercel 배포 (§6)
-4. P4: pg_cron 수집 자동화 + `claude login` 후 작업 스케줄러
-5. spec §8.2 리포트 요청 큐 (`report_requests` INSERT + API 라우트)
+3. P4: pg_cron 수집 자동화 + `claude login` 후 작업 스케줄러
+4. spec §8.2 리포트 요청 큐 (`report_requests` INSERT + API 라우트)
+5. (선택) Vercel GitHub 연동으로 전환 — §6 참조. 지금은 코드 변경 시 수동 재배포가 필요하다.
 
 ---
 
