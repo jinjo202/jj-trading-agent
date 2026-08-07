@@ -4,7 +4,7 @@ import { askValidated } from '../llm.ts'
 import { kstDate, setPublished } from '../db.ts'
 import { validateAgentOutput, validateCompanyReport, validateDailyVerdict, validateDeskOutput } from '../schema.ts'
 import { DESKS } from '../types.ts'
-import type { AgentOutput, BundleA, BundleB, CompanyReport, DailyVerdict } from '../types.ts'
+import type { AgentOutput, BundleA, BundleB, CompanyReport, Desk, MarketCode } from '../types.ts'
 
 /** npm 스크립트를 그대로 돌린다. 실패하면 즉시 멈춘다 — 부분 결과를 발행하지 않는다. */
 function sh(args: string[]): Promise<void> {
@@ -71,11 +71,30 @@ try {
 
   console.log('cio 실행...')
   const cioBundle = { ...bundleB, counter }
+
+  /**
+   * desk_reads는 CIO가 판단하는 것이 아니라 데스크 코멘트를 그 시장 기준으로 모으는 일이다.
+   * 모델에게 시키면 (1) 출력이 두 배가 되어 20KB 지점에서 잘리고 (2) 옮기며 원문이 달라진다.
+   * 실제로 첫 실행에서 이 두 가지가 다 일어났다. 그래서 코드가 채운다 —
+   * 화면에 나가는 애널리스트 코멘트가 데스크 원문과 100% 일치하는 것이 덤으로 보장된다.
+   */
+  const deskReadsFor = (code: MarketCode) =>
+    deskOutputs.flatMap((d) => {
+      const r = d.markets?.find((m) => m.market === code)
+      return r ? [{ desk: d.agent as Desk, stance: r.stance, comment: r.comment }] : []
+    })
+
   const verdict = await askValidated(
     'cio',
     buildPrompt(readme, await read('prompts/cio.md'), cioBundle,
-      `date는 반드시 "${date}"여야 한다.`),
-    validateDailyVerdict,
+      `date는 반드시 "${date}"여야 한다. desk_reads는 출력하지 마라 — 코드가 채운다.`),
+    (raw) => {
+      const o = raw as { markets?: { code: MarketCode }[] }
+      if (Array.isArray(o?.markets)) {
+        o.markets = o.markets.map((m) => ({ ...m, desk_reads: deskReadsFor(m.code) }))
+      }
+      return validateDailyVerdict(o)
+    },
   )
   console.log(`  CIO: ${verdict.signal} / ${verdict.equity_score}점 / ${verdict.markets?.map((m) => `${m.code} ${m.weight_pct}%`).join(' ')}`)
 

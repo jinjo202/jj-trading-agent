@@ -7,7 +7,9 @@ import { spawn } from 'node:child_process'
  * 이게 중요한 이유: 헤드리스 실행에서 도구를 쓰면 워크스페이스 신뢰·권한 프롬프트에 걸려
  * 무인 실행이 조용히 멈춘다. 도구를 아예 안 주면 그 경로가 사라진다.
  */
-export async function askClaude(prompt: string, timeoutMs = 300_000): Promise<string> {
+// 기본 10분. CIO 단계는 번들 56KB를 읽고 JSON 10KB를 쓰기 때문에 5분으로는 부족해
+// 실측에서 타임아웃이 났다. 데스크는 60-90초에 끝나므로 천장을 높여도 정상 경로에는 영향이 없다.
+export async function askClaude(prompt: string, timeoutMs = 600_000): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(
       'claude',
@@ -31,15 +33,25 @@ export async function askClaude(prompt: string, timeoutMs = 300_000): Promise<st
     child.on('error', (e) => { clearTimeout(timer); reject(e) })
     child.on('close', (code) => {
       clearTimeout(timer)
-      if (code !== 0) return reject(new Error(`claude -p 종료코드 ${code}: ${err.slice(0, 500)}`))
+      // 종료코드보다 stdout의 JSON을 먼저 본다. claude는 오류일 때도 구조화된 응답을 주는데,
+      // 종료코드부터 보고 stderr를 던지면 실제 원인이 묻힌다 —
+      // 실측에서 429(세션 한도)가 무해한 워크스페이스 신뢰 경고에 가려졌다.
+      let env: { result?: unknown; is_error?: boolean; api_error_status?: number } | null = null
       try {
-        const env = JSON.parse(out) as { result?: unknown; is_error?: boolean }
-        if (env.is_error) return reject(new Error(`claude -p 오류 응답: ${String(env.result).slice(0, 500)}`))
-        if (typeof env.result !== 'string') return reject(new Error('claude -p 응답에 result 문자열이 없습니다'))
-        resolve(env.result)
-      } catch (e) {
-        reject(new Error(`claude -p 응답 파싱 실패: ${(e as Error).message} / ${out.slice(0, 300)}`))
+        env = JSON.parse(out)
+      } catch {
+        // stdout이 JSON이 아니면 아래에서 종료코드/stderr로 보고한다.
       }
+      if (env?.is_error) {
+        const status = env.api_error_status
+        const msg = `claude -p 오류${status ? ` (HTTP ${status})` : ''}: ${String(env.result).slice(0, 300)}`
+        return reject(Object.assign(new Error(msg), { apiErrorStatus: status }))
+      }
+      if (code !== 0) return reject(new Error(`claude -p 종료코드 ${code}: ${err.slice(0, 400)}`))
+      if (typeof env?.result !== 'string') {
+        return reject(new Error(`claude -p 응답에 result 문자열이 없습니다: ${out.slice(0, 300)}`))
+      }
+      resolve(env.result)
     })
 
     child.stdin.write(prompt)
@@ -80,6 +92,10 @@ export async function askValidated<T>(
       const raw = await askClaude(p)
       return validate(extractJson(raw))
     } catch (e) {
+      // 사용량 한도(429)는 재시도로 풀리지 않는다. 3회를 더 때려도 같은 답이 오고
+      // 그 사이 남은 단계까지 실패하므로 즉시 멈춰 로그에 원인을 남긴다.
+      const status = (e as { apiErrorStatus?: number }).apiErrorStatus
+      if (status === 429) throw new Error(`${label} 중단 — 사용량 한도: ${(e as Error).message}`)
       lastErr = (e as Error).message
       console.error(`  ${label} 시도 ${i}/${attempts} 실패: ${lastErr.slice(0, 300)}`)
       if (i === attempts) throw new Error(`${label} ${attempts}회 실패: ${lastErr}`)

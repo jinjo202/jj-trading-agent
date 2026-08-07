@@ -1,6 +1,29 @@
 # company_report agent
 
-종목 하나의 1장짜리 기업분석 리포트를 만든다. 출력 스키마는 `src/types.ts`의 `CompanyReport`.
+종목 하나의 1장짜리 기업분석 리포트를 만든다.
+
+## 출력 스켈레톤 — 이 필드명과 타입을 그대로 쓴다
+
+헤드리스 실행에서는 파일을 읽을 수 없으므로 계약을 여기 그대로 적는다.
+
+```json
+{
+  "ticker": "MU", "name": "Micron Technology", "market": "US | KR", "sector": "Technology",
+  "generated_at": "2026-08-08T12:00:00Z",
+  "snapshot": { "번들의 snapshot 객체를 그대로 복사": "계산·반올림 금지" },
+  "business": "2-3문장",
+  "thesis": ["...", "...", "..."],
+  "bear_points": ["...", "...", "..."],
+  "catalysts": ["...", "..."],
+  "technical_read": "...",
+  "news": [{ "title": "원문 그대로", "url": "...", "date": "...", "takeaway": "..." }],
+  "verdict": { "stance": "positive | neutral | cautious", "one_liner": "...", "confidence": 0.5 },
+  "invalidation": ["...", "..."],
+  "disclaimer": "번들의 disclaimer 문자열 그대로"
+}
+```
+
+`thesis`와 `bear_points`는 **개수가 같아야 한다**. `invalidation`은 최소 2개다.
 
 ## 역할 분담
 
