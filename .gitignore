@@ -8,6 +8,7 @@ dist/
 # SDD 리뷰 패키지는 git 로그에서 재생성 가능
 .superpowers/sdd/**/review-*.diff
 runs/
+logs/
 
 !web/.env.local.example
 

@@ -87,6 +87,15 @@ export async function writeDailyVerdict(verdict: DailyVerdict): Promise<void> {
   if (error) throw new Error(`daily_verdicts 쓰기 실패: ${error.message}`)
 }
 
+/**
+ * 발행된 판단을 공개로 바꾼다. anon RLS가 published=true인 행만 읽으므로
+ * 이 플래그가 곧 "사이트에 뜨는가"다. 무인 실행에서 자동 공개할 때만 쓴다.
+ */
+export async function setPublished(date: string, published: boolean): Promise<void> {
+  const { error } = await db().from('daily_verdicts').update({ published }).eq('date', date)
+  if (error) throw new Error(`daily_verdicts 공개 상태 변경 실패 (${date}): ${error.message}`)
+}
+
 export async function writeCompanyReports(reports: CompanyReport[]): Promise<void> {
   if (reports.length === 0) return
   const rows = reports.map((r) => ({

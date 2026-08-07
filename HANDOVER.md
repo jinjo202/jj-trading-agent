@@ -105,16 +105,10 @@ DB 실측 결과 우리 테이블 6개가 **전부 0행**이다.
 
 발급: https://fred.stlouisfed.org/docs/api/api_key.html — 무료, 즉시 발급.
 
-### (3) `claude -p`가 미인증 상태 → 분석 자동화 불가
+### (3) ~~`claude -p` 미인증~~ → **해결됨 (2026-08-08)**
 
-```
-$ claude -p "say hi" --output-format json
-→ "Not logged in · Please run /login"
-```
-
-**현재 우회 방법**: Claude Code에서 슬래시 커맨드 `/daily`를 수동 실행한다. 이건 인증 없이 지금 작동한다.
-자동화(P4)를 하려면 새 PC의 터미널에서 `claude login`을 한 번 실행해야 한다.
-`/daily`와 헤드리스 러너가 `prompts/` 파일을 공유하므로 재작업은 없다.
+`claude -p`는 이제 로그인돼 있고 헤드리스 실행이 작동한다. `npm run daily` 한 줄로
+수집부터 발행까지 전부 돈다. §5 참조.
 
 ---
 
@@ -166,26 +160,63 @@ cd web && npm run build     # 빌드 통과
 
 ## 5. 매일 돌리는 방법
 
-```bash
-npm run universe        # 유니버스 702종목(US 503 / KR 199)을 DB에 적재 — 최초 1회 및 분기 갱신
-npm run collect         # 시세·펀더멘털·매크로·뉴스 수집 → market_snapshots 저장
-npm run candidates      # 결정론적 스크리너 → 후보 12종목
-npm run prepare:bundle  # agent에게 줄 입력 번들 생성
-```
-
-그 다음 Claude Code에서:
-
-```
-/daily
-```
-
-`/daily`가 agent 6개 + 반대의견 1개 + 종합 1개를 실행하고, 결과를 다음 명령으로 발행한다.
+### 자동 (권장) — 2026-08-08 추가
 
 ```bash
-npm run publish:run     # agent_reports + daily_verdicts + company_reports 기록
+npm run daily           # 수집 → 데스크 6개 → 스크리닝 → 반대의견 → CIO → 기업리포트 → 발행
 ```
 
-일일 LLM 호출 예산은 13회다 (분석 6 + 반대의견 1 + 종합 1 + 기업 리포트 5).
+한 줄로 전 과정이 돈다. 소요 15-20분, LLM 호출 최대 13회.
+
+동작 방식이 중요하다. `src/llm.ts`가 `claude -p --tools ""`를 **텍스트 in / JSON out**으로만 쓴다.
+번들 전체를 프롬프트에 인라인으로 넣기 때문에 모델이 파일·셸 도구를 쓸 일이 없고,
+따라서 **워크스페이스 신뢰·권한 프롬프트에 걸려 무인 실행이 멈추는 경로가 아예 없다.**
+
+각 단계는 기존 검증기(`src/schema.ts`)를 통과해야 다음으로 넘어간다.
+실패하면 **검증기 오류 메시지를 그대로 다시 프롬프트에 넣어** 최대 3회 재시도한다 —
+"어느 필드가 왜 거부됐는지"가 모델이 고칠 수 있는 유일한 정보다.
+
+> `spawn`에 `shell: true`를 쓰지 마라. Windows 셸이 빈 문자열 인자를 삼켜서
+> `--tools`가 값 없는 플래그가 되고 CLI가 `argument missing`으로 죽는다.
+> `claude`는 `.exe`라 셸 없이 PATH에서 바로 실행된다.
+
+### 스케줄러
+
+`scripts/daily.cmd`가 작업 스케줄러 진입점이다(cwd를 스스로 잡고 `logs/`에 날짜별 로그를 남긴다).
+등록/해제:
+
+```powershell
+schtasks /Create /TN "jj-trading-agent-daily" /TR "\"C:\Users\ocarr\OneDrive\dev\jj-coding-projects\trading agent\scripts\daily.cmd\"" /SC DAILY /ST 07:20
+schtasks /Delete /TN "jj-trading-agent-daily" /F
+```
+
+07:20 KST인 이유: 미국 장 마감(05:00-06:00 KST) 이후이고 한국 장 시작(09:00) 전이다.
+
+### 수동 (단계별로 보고 싶을 때)
+
+```bash
+npm run universe        # 유니버스 702종목 적재 — 최초 1회 및 분기 갱신
+npm run collect
+npm run prepare:bundle
+# Claude Code에서 /daily 슬래시 커맨드로 데스크 6개 실행 → runs/<DATE>/agents-a.json
+npm run candidates -- <DATE>
+# 반대의견 + CIO + 기업리포트 → runs/<DATE>/agents-b.json
+npm run publish:run -- <DATE>
+```
+
+### 공개는 여전히 수동이다
+
+발행은 항상 `published=false`다. 사람이 확인한 뒤 공개한다 — 자동화해도 이 게이트는 남겨뒀다.
+
+```sql
+update daily_verdicts set published = true where date = '<DATE>';
+```
+
+### 비용
+
+`claude -p`는 호출당 시스템 프롬프트 캐시 생성 때문에 최소 $0.2 수준이 붙는다.
+13회면 하루 **$2-3** 정도로 보면 된다. 줄이려면 기업 리포트 5건을 빼거나
+`src/llm.ts`에서 `--model`을 낮추면 된다.
 
 ---
 
