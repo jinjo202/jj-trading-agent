@@ -24,7 +24,7 @@
 | P1 | 수집 파이프라인 (데이터 소스, 지표 계산, 스냅샷) | **완료** |
 | P2 | 분석 파이프라인 (agent 프롬프트 9개, 스크리너, 발행) | **완료** |
 | P3 | 웹 대시보드 | **완료 (7/7)** |
-| P4 | 자동화 (pg_cron 수집, 작업 스케줄러 분석) | 미착수 |
+| P4 | 자동화 (헤드리스 `npm run daily` + 작업 스케줄러 07:20) | **완료** |
 
 ### P3 세부
 
@@ -188,14 +188,22 @@ npm run daily           # 수집 → 데스크 6개 → 스크리닝 → 반대�
 ### 스케줄러
 
 `scripts/daily.cmd`가 작업 스케줄러 진입점이다(cwd를 스스로 잡고 `logs/`에 날짜별 로그를 남긴다).
-등록/해제:
+
+**등록 완료**: `jj-trading-agent-daily`, 매일 **07:20 KST**.
+07:20인 이유는 미국 장 마감(05:00-06:00 KST) 이후이고 한국 장 시작(09:00) 전이기 때문이다.
 
 ```powershell
-schtasks /Create /TN "jj-trading-agent-daily" /TR "\"C:\Users\ocarr\OneDrive\dev\jj-coding-projects\trading agent\scripts\daily.cmd\"" /SC DAILY /ST 07:20
-schtasks /Delete /TN "jj-trading-agent-daily" /F
+Get-ScheduledTaskInfo -TaskName "jj-trading-agent-daily"      # 다음 실행 시각 확인
+Start-ScheduledTask     -TaskName "jj-trading-agent-daily"    # 지금 한 번 돌리기
+Unregister-ScheduledTask -TaskName "jj-trading-agent-daily"   # 해제
 ```
 
-07:20 KST인 이유: 미국 장 마감(05:00-06:00 KST) 이후이고 한국 장 시작(09:00) 전이다.
+> `schtasks /Create`에 경로를 넘길 때 공백 때문에 인용이 깨진다("trading" 에서 잘림).
+> PowerShell `Register-ScheduledTask` cmdlet을 쓰면 이 문제가 없다.
+
+**자동 공개가 켜져 있다.** `scripts/daily.cmd`가 `npm run daily -- --publish`를 부르므로
+실행이 성공하면 사람 검토 없이 사이트에 바로 올라간다.
+검토 후 공개로 바꾸려면 그 줄에서 ` -- --publish`만 지우면 된다.
 
 ### 수동 (단계별로 보고 싶을 때)
 
@@ -209,9 +217,12 @@ npm run candidates -- <DATE>
 npm run publish:run -- <DATE>
 ```
 
-### 공개는 여전히 수동이다
+### 공개 게이트
 
-발행은 항상 `published=false`다. 사람이 확인한 뒤 공개한다 — 자동화해도 이 게이트는 남겨뒀다.
+`npm run daily`는 기본값이 `published=false`다. `--publish`를 줘야 공개까지 간다.
+스케줄러(`scripts/daily.cmd`)는 `--publish`를 켜둔 상태다.
+
+수동으로 공개하려면:
 
 ```sql
 update daily_verdicts set published = true where date = '<DATE>';
@@ -335,13 +346,16 @@ supabase/migrations/0001_trading_agent_schema.sql
 
 ## 9. 남은 작업 순서 (권장)
 
-1. §3의 막힌 것 3개 해소 — 특히 `SUPABASE_SERVICE_ROLE_KEY`, `FRED_API_KEY`
-2. `npm run universe` → `collect` → `candidates` → `prepare:bundle` → `/daily` → `publish:run`을
-   한 번 완주해서 `daily_verdicts`에 실제 1행을 만든다. 이게 전체 파이프라인의 첫 실증이다.
-   지금까지 모든 화면 검증은 빈 DB 또는 더미 1행 기준이므로, 실데이터로 도는 것은 아직 미확인이다.
-3. P4: pg_cron 수집 자동화 + `claude login` 후 작업 스케줄러
-4. spec §8.2 리포트 요청 큐 (`report_requests` INSERT + API 라우트)
-5. (선택) Vercel GitHub 연동으로 전환 — §6 참조. 지금은 코드 변경 시 수동 재배포가 필요하다.
+1. **07:20 첫 자동 실행 결과 확인** — `logs/daily-<날짜>.log`를 보고 전 단계가 통과했는지 본다.
+   특히 CIO 단계는 실측에서 세 번 실패했다가 고친 자리라 첫 무인 실행 확인이 필요하다.
+   사용량 한도(429)에 걸리면 그 로그에 그대로 찍힌다.
+2. **스크리너 섹터 쏠림** — OW 섹터가 3개(헬스케어·금융·기술)인데 모멘텀 상위 24종목이
+   전부 반도체로 나온다. `src/screener.ts`의 `rankByMomentum`이 섹터 구분 없이 정렬하기 때문이다.
+   섹터별 쿼터(예: 섹터당 최대 N종목)를 넣어야 후보가 실제로 분산된다.
+3. spec §8.2 리포트 요청 큐 (`report_requests` INSERT + API 라우트)
+4. (선택) Vercel GitHub 연동으로 전환 — §6 참조. 지금은 코드 변경 시 수동 재배포가 필요하다.
+5. (선택) 지역별 섹터 데이터. 지금은 미국(XL* ETF)만 실측이라 다른 시장 섹터 코멘트는
+   시장 구성에 기반한 추론이다. 프롬프트와 화면에 그 한계를 명시해 뒀다.
 
 ---
 
