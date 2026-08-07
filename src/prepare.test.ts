@@ -32,17 +32,30 @@ const candidate = (ticker: string): Candidate => ({
   forwardPE: 20, priceToBook: 5, score: 1.2, tech: null,
 })
 
-test('buildBundleA는 features와 뉴스를 담고 실행할 agent 5개를 명시한다', () => {
-  const b = buildBundleA(features, [news('us')], [news('kr')])
+test('buildBundleA는 features와 뉴스를 담고 데스크 6개를 명시한다', () => {
+  const b = buildBundleA(features, [news('us')], [news('kr')], { JP: [news('jp')] })
   assert.equal(b.date, '2026-07-31')
   assert.equal(b.news.market.length, 1)
   assert.equal(b.news.korea.length, 1)
-  assert.deepEqual(b.agents_to_run, ['macro', 'allocation', 'country_sector', 'technical', 'news'])
+  assert.equal(b.news.regions.JP?.length, 1)
+  assert.deepEqual(
+    b.agents_to_run,
+    ['macro', 'technical', 'news', 'allocation', 'fundamental', 'sector'],
+  )
   assert.ok(b.disclaimer.length > 0)
 })
 
-test('owSectorsFrom은 country_sector의 evidence에서 OW 섹터를 뽑는다', () => {
-  const cs = agent('country_sector', {
+// 데스크 이름은 2026-08 개편에서 country_sector → sector로 바뀌었다.
+// 과거 실행분을 다시 돌릴 수 있어야 하므로 둘 다 받는다.
+test('owSectorsFrom은 옛 이름(country_sector)도 계속 읽는다', () => {
+  const old = agent('country_sector', {
+    evidence: [{ label: 'sector:Technology', value: 'OW', source: 's' }],
+  })
+  assert.deepEqual(owSectorsFrom([old]), ['Technology'])
+})
+
+test('owSectorsFrom은 sector 데스크의 evidence에서 OW 섹터를 뽑는다', () => {
+  const cs = agent('sector', {
     evidence: [
       { label: 'sector:Technology', value: 'OW', source: 'features.relative.sectors' },
       { label: 'sector:Utilities', value: 'UW', source: 'features.relative.sectors' },
@@ -54,7 +67,7 @@ test('owSectorsFrom은 country_sector의 evidence에서 OW 섹터를 뽑는다',
 })
 
 test('owSectorsFrom은 대소문자와 공백을 허용한다', () => {
-  const cs = agent('country_sector', {
+  const cs = agent('sector', {
     evidence: [
       { label: 'sector:Technology', value: 'ow', source: 'features.relative.sectors' },
       { label: 'sector: Energy', value: 'OW ', source: 'features.relative.sectors' },
@@ -65,14 +78,14 @@ test('owSectorsFrom은 대소문자와 공백을 허용한다', () => {
 })
 
 test('owSectorsFrom은 섹터명을 대소문자 구분 없이 정규화한다', () => {
-  const cs = agent('country_sector', {
+  const cs = agent('sector', {
     evidence: [{ label: 'sector:technology', value: 'OW', source: 's' }],
   })
   assert.deepEqual(owSectorsFrom([cs]), ['Technology'])
 })
 
 test('owSectorsFrom은 알 수 없는 섹터명이면 던진다', () => {
-  const cs = agent('country_sector', {
+  const cs = agent('sector', {
     evidence: [{ label: 'sector:Widgets', value: 'OW', source: 's' }],
   })
   assert.throws(() => owSectorsFrom([cs]), /Widgets/)
@@ -80,7 +93,7 @@ test('owSectorsFrom은 알 수 없는 섹터명이면 던진다', () => {
 
 test('owSectorsFrom은 country_sector가 없거나 OW가 없으면 빈 배열', () => {
   assert.deepEqual(owSectorsFrom([agent('macro')]), [])
-  assert.deepEqual(owSectorsFrom([agent('country_sector', { evidence: [{ label: 'sector:X', value: 'UW', source: 's' }] })]), [])
+  assert.deepEqual(owSectorsFrom([agent('sector', { evidence: [{ label: 'sector:X', value: 'UW', source: 's' }] })]), [])
 })
 
 test('buildBundleB는 A단계 결과와 후보를 싣고 B단계 agent를 명시한다', () => {
@@ -89,7 +102,7 @@ test('buildBundleB는 A단계 결과와 후보를 싣고 B단계 agent를 명시
   assert.equal(b.date, a.date)
   assert.equal(b.candidates.length, 1)
   assert.equal(b.candidate_news.AAPL.length, 1)
-  assert.deepEqual(b.agents_to_run, ['fundamental', 'counter', 'synthesizer', 'company_report'])
+  assert.deepEqual(b.agents_to_run, ['counter', 'cio', 'company_report'])
 })
 
 test('buildBundleB의 company_reports_for는 요청 큐를 그대로 싣는다', () => {

@@ -1,4 +1,5 @@
-import type { AgentOutput, CompanyReport, DailyVerdict } from './types.ts'
+import { DESKS, MARKET_CODES } from './types.ts'
+import type { AgentOutput, CompanyReport, DailyVerdict, Desk, MarketCode } from './types.ts'
 
 class Path {
   // ponytail: 문자열 경로를 손으로 잇는다. 검증기 하나 쓰자고 zod를 넣지 않는다.
@@ -77,7 +78,52 @@ export function validateAgentOutput(v: unknown): AgentOutput {
       }
     }),
     flags: strArray(o.flags, p.child('flags')),
+    // 없으면 키 자체를 만들지 않는다. `markets: undefined`를 넣으면
+    // 원본과 deepEqual이 깨지고 DB에도 쓸모없는 키가 남는다.
+    ...(o.markets === undefined ? {} : { markets: marketReads(o.markets, p.child('markets')) }),
   }
+}
+
+const STANCE_3 = ['bullish', 'neutral', 'bearish'] as const
+
+function marketReads(v: unknown, p: Path): AgentOutput['markets'] {
+  return arr(v, p).map((m, i) => {
+    const mp = p.child(i)
+    const mo = obj(m, mp)
+    return {
+      market: oneOf(mo.market, mp.child('market'), MARKET_CODES),
+      stance: oneOf(mo.stance, mp.child('stance'), STANCE_3),
+      comment: str(mo.comment, mp.child('comment')),
+    }
+  })
+}
+
+/**
+ * 데스크 agent는 5개 시장 전부에 코멘트를 남겨야 한다.
+ * 하나라도 빠지면 그 시장의 판단 근거가 통째로 비므로 여기서 막는다.
+ */
+export function validateDeskOutput(v: unknown): AgentOutput {
+  const out = validateAgentOutput(v)
+  const p = new Path(`DeskOutput(${out.agent})`)
+  if (!out.markets || out.markets.length === 0) {
+    p.child('markets').fail('데스크 agent는 시장별 코멘트가 필요합니다')
+  }
+  const seen = new Set(out.markets!.map((m) => m.market))
+  const missing = MARKET_CODES.filter((c) => !seen.has(c))
+  if (missing.length > 0) {
+    p.child('markets').fail(`빠진 시장: ${missing.join(', ')} (5개 전부 필요)`)
+  }
+  return out
+}
+
+/** 밴드 [하한, 상한]. 순서가 뒤집힌 값은 조용히 통과시키지 않는다. */
+function band(v: unknown, p: Path): [number, number] {
+  const a = arr(v, p)
+  if (a.length !== 2) p.fail(`[하한, 상한] 두 개여야 함 (받은 개수: ${a.length})`)
+  const lo = numIn(a[0], p.child(0), 0, 100)
+  const hi = numIn(a[1], p.child(1), 0, 100)
+  if (lo > hi) p.fail(`하한이 상한보다 큼 (${lo} > ${hi})`)
+  return [lo, hi]
 }
 
 export function validateDailyVerdict(v: unknown): DailyVerdict {
@@ -125,6 +171,77 @@ export function validateDailyVerdict(v: unknown): DailyVerdict {
         stance: oneOf(so.stance, sp.child('stance'), ['OW', 'N', 'UW'] as const),
         etf: str(so.etf, sp.child('etf')),
         rationale: str(so.rationale, sp.child('rationale')),
+        ...(so.region === undefined
+          ? {}
+          : { region: oneOf(so.region, sp.child('region'), [...MARKET_CODES, 'GLOBAL'] as const) }),
+      }
+    }),
+    regime: str(o.regime, p.child('regime')),
+    horizon: str(o.horizon, p.child('horizon')),
+    asset_allocation: (() => {
+      const ap = p.child('asset_allocation')
+      const ao = obj(o.asset_allocation, ap)
+      const equity = band(ao.equity, ap.child('equity'))
+      const bond = band(ao.bond, ap.child('bond'))
+      const cash = band(ao.cash, ap.child('cash'))
+      // 밴드 중앙값의 합이 100 근처가 아니면 배분표로 쓸 수 없다.
+      const mid = ([lo, hi]: [number, number]) => (lo + hi) / 2
+      const total = mid(equity) + mid(bond) + mid(cash)
+      if (Math.abs(total - 100) > 5) {
+        ap.fail(`밴드 중앙값 합이 100에서 너무 멉니다 (${total.toFixed(1)})`)
+      }
+      return { equity, bond, cash, rationale: str(ao.rationale, ap.child('rationale')) }
+    })(),
+    dm_vs_em: (() => {
+      const dp = p.child('dm_vs_em')
+      const dobj = obj(o.dm_vs_em, dp)
+      return {
+        preference: oneOf(dobj.preference, dp.child('preference'), ['DM', 'EM', 'neutral'] as const),
+        rationale: str(dobj.rationale, dp.child('rationale')),
+      }
+    })(),
+    markets: (() => {
+      const mp = p.child('markets')
+      const rows = arr(o.markets, mp, { min: 1 }).map((m, i) => {
+        const rp = mp.child(i)
+        const mo = obj(m, rp)
+        return {
+          code: oneOf(mo.code, rp.child('code'), MARKET_CODES),
+          stance: oneOf(mo.stance, rp.child('stance'), ['OW', 'N', 'UW'] as const),
+          weight_pct: numIn(mo.weight_pct, rp.child('weight_pct'), 0, 100),
+          conviction: oneOf(mo.conviction, rp.child('conviction'), ['low', 'medium', 'high'] as const),
+          headline: str(mo.headline, rp.child('headline')),
+          rationale: str(mo.rationale, rp.child('rationale')),
+          key_risk: str(mo.key_risk, rp.child('key_risk')),
+          desk_reads: arr(mo.desk_reads, rp.child('desk_reads'), { min: 1 }).map((d, j) => {
+            const dp2 = rp.child('desk_reads').child(j)
+            const dobj2 = obj(d, dp2)
+            return {
+              desk: oneOf(dobj2.desk, dp2.child('desk'), DESKS) as Desk,
+              stance: oneOf(dobj2.stance, dp2.child('stance'), STANCE_3),
+              comment: str(dobj2.comment, dp2.child('comment')),
+            }
+          }),
+        }
+      })
+      const seen = new Set(rows.map((r) => r.code))
+      const missing = MARKET_CODES.filter((c) => !seen.has(c as MarketCode))
+      if (missing.length > 0) mp.fail(`빠진 시장: ${missing.join(', ')} (5개 전부 필요)`)
+      // 주식 슬리브 안의 배분이므로 합이 100이어야 한다. 합이 안 맞는 배분표는 실행할 수 없다.
+      const total = rows.reduce((s, r) => s + r.weight_pct, 0)
+      if (Math.abs(total - 100) > 1) {
+        mp.fail(`weight_pct 합이 100이 아닙니다 (${total.toFixed(1)})`)
+      }
+      return rows
+    })(),
+    trades: arr(o.trades, p.child('trades')).map((t, i) => {
+      const tp = p.child('trades').child(i)
+      const to = obj(t, tp)
+      return {
+        action: oneOf(to.action, tp.child('action'), ['add', 'trim'] as const),
+        instrument: str(to.instrument, tp.child('instrument')),
+        market: oneOf(to.market, tp.child('market'), [...MARKET_CODES, 'GLOBAL'] as const),
+        rationale: str(to.rationale, tp.child('rationale')),
       }
     }),
     picks: arr(o.picks, p.child('picks'), { min: 1 }).map((k, i) => {

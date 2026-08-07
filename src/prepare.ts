@@ -1,5 +1,5 @@
 import type {
-  AgentOutput, BundleA, BundleB, Candidate, CompanyReport, FeatureSet, NewsItem,
+  AgentOutput, BundleA, BundleB, Candidate, CompanyReport, FeatureSet, MarketCode, NewsItem,
 } from './types.ts'
 import { SECTOR_BY_ETF } from './universe.ts'
 
@@ -22,20 +22,25 @@ export function buildBundleA(
   features: FeatureSet,
   indexNews: NewsItem[],
   krNews: NewsItem[],
+  regionNews: Partial<Record<MarketCode, NewsItem[]>> = {},
 ): BundleA {
   return {
     date: features.date,
     features,
-    news: { market: indexNews, korea: krNews },
-    agents_to_run: ['macro', 'allocation', 'country_sector', 'technical', 'news'],
+    news: { market: indexNews, korea: krNews, regions: regionNews },
+    // 6개 데스크가 각각 5개 시장 전부에 코멘트를 남긴다. 시장×데스크로 30번 부르지 않고
+    // 데스크당 1번씩 6번만 부른다 — 한 데스크가 5개 시장을 한 번에 보는 편이
+    // 시장 간 비교(상대 배분의 본질)에도 맞다.
+    agents_to_run: ['macro', 'technical', 'news', 'allocation', 'fundamental', 'sector'],
     disclaimer: DISCLAIMER,
   }
 }
 
-// country_sector agent는 섹터 스탠스를 evidence에 `label: 'sector:<Yahoo섹터명>', value: 'OW'`
+// sector 데스크는 섹터 스탠스를 evidence에 `label: 'sector:<Yahoo섹터명>', value: 'OW'`
 // 형태로 남긴다. 스크리너가 자유 서술을 파싱하지 않아도 되게 만든 계약이다.
+// 'country_sector'는 2026-08 데스크 개편 전 이름 — 과거 실행분을 다시 돌릴 때를 위해 받아준다.
 export function owSectorsFrom(agents: AgentOutput[]): string[] {
-  const cs = agents.find((a) => a.agent === 'country_sector')
+  const cs = agents.find((a) => a.agent === 'sector' || a.agent === 'country_sector')
   if (!cs) return []
   return cs.evidence
     .filter((e) => e.label.startsWith('sector:') && e.value.trim().toUpperCase() === 'OW')
@@ -60,7 +65,7 @@ export function buildBundleB(
     candidate_news: news,
     company_snapshots: snapshots,
     company_reports_for: requested,
-    agents_to_run: ['fundamental', 'counter', 'synthesizer', 'company_report'],
+    agents_to_run: ['counter', 'cio', 'company_report'],
     disclaimer: DISCLAIMER,
   }
 }

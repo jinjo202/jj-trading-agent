@@ -1,6 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { validateAgentOutput, validateCompanyReport, validateDailyVerdict } from './schema.ts'
+import {
+  validateAgentOutput, validateCompanyReport, validateDailyVerdict, validateDeskOutput,
+} from './schema.ts'
 
 const goodAgent = {
   agent: 'macro',
@@ -51,6 +53,9 @@ test('객체가 아니면 거부', () => {
   assert.throws(() => validateAgentOutput('{}'), /object/)
 })
 
+// 40 + 15*4 = 100. weight_pct 합 검증을 통과하는 최소 조합이다.
+const deskMarkets = ['US', 'KR', 'JP', 'EU', 'EM'] as const
+
 const goodVerdict = {
   date: '2026-07-31',
   equity_score: 68,
@@ -67,6 +72,24 @@ const goodVerdict = {
   }],
   invalidation: ['HY 스프레드가 5%를 넘으면 이 논리는 깨진다'],
   disclaimer: '투자자문이 아닙니다.',
+  regime: '확장 후반 — 신용 타이트, 디스인플레이션 둔화',
+  horizon: '3-6개월 전술적',
+  asset_allocation: {
+    equity: [60, 70], bond: [20, 30], cash: [5, 10],
+    rationale: '신용 스프레드가 타이트해 주식 비중을 중립 위로 둔다',
+  },
+  dm_vs_em: { preference: 'DM', rationale: '달러 강세가 EM 수익률을 깎는다' },
+  markets: deskMarkets.map((code, i) => ({
+    code,
+    stance: i === 0 ? 'OW' : 'N',
+    weight_pct: i === 0 ? 40 : 15,
+    conviction: 'medium',
+    headline: `${code} 한 줄 판단`,
+    rationale: `${code} 근거`,
+    key_risk: `${code} 리스크`,
+    desk_reads: [{ desk: 'macro', stance: 'neutral', comment: `${code} 매크로 코멘트` }],
+  })),
+  trades: [{ action: 'add', instrument: 'XLV', market: 'US', rationale: '섹터 상대모멘텀 1위' }],
 }
 
 test('정상 DailyVerdict은 통과', () => {
@@ -102,6 +125,33 @@ test('픽의 market이 KR/US가 아니면 거부', () => {
 
 test('picks가 비면 거부 — 빈 검증(zero-pick) verdict는 통과시키지 않는다', () => {
   assert.throws(() => validateDailyVerdict({ ...goodVerdict, picks: [] }), /picks/)
+})
+
+// 합이 100이 아닌 배분표는 실행할 수 없다. 조용히 통과시키면 화면에 그대로 나간다.
+test('시장 weight_pct 합이 100이 아니면 거부', () => {
+  const skewed = goodVerdict.markets.map((m, i) => ({ ...m, weight_pct: i === 0 ? 50 : 15 }))
+  assert.throws(() => validateDailyVerdict({ ...goodVerdict, markets: skewed }), /weight_pct/)
+})
+
+test('5개 시장 중 하나라도 빠지면 거부', () => {
+  const four = goodVerdict.markets.filter((m) => m.code !== 'JP')
+  assert.throws(() => validateDailyVerdict({ ...goodVerdict, markets: four }), /JP/)
+})
+
+test('자산배분 밴드 중앙값 합이 100에서 멀면 거부', () => {
+  const bad = { ...goodVerdict.asset_allocation, equity: [10, 20] }
+  assert.throws(() => validateDailyVerdict({ ...goodVerdict, asset_allocation: bad }), /asset_allocation/)
+})
+
+test('데스크 출력은 5개 시장 코멘트를 전부 요구한다', () => {
+  const full = {
+    ...goodAgent,
+    markets: deskMarkets.map((code) => ({ market: code, stance: 'neutral', comment: `${code} 코멘트` })),
+  }
+  assert.equal(validateDeskOutput(full).markets?.length, 5)
+  const partial = { ...full, markets: full.markets.filter((m) => m.market !== 'EM') }
+  assert.throws(() => validateDeskOutput(partial), /EM/)
+  assert.throws(() => validateDeskOutput(goodAgent), /markets/)
 })
 
 const goodReport = {

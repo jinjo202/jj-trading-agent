@@ -87,3 +87,26 @@ const COMPANY_STANCE_LABELS = {
 export function companyStanceLabel(stance: 'positive' | 'neutral' | 'cautious') {
   return COMPANY_STANCE_LABELS[stance]
 }
+
+const DESK_STANCE_LABELS = {
+  bullish: { text: '강세', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' },
+  neutral: { text: '중립', className: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300' },
+  bearish: { text: '약세', className: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300' },
+} as const
+
+export function deskStanceLabel(stance: 'bullish' | 'neutral' | 'bearish') {
+  return DESK_STANCE_LABELS[stance]
+}
+
+/** 자산배분 밴드를 "55-70%"로. 하한==상한이면 단일 숫자. */
+export function bandLabel([lo, hi]: [number, number]): string {
+  return lo === hi ? `${lo}%` : `${lo}-${hi}%`
+}
+
+const DM_EM_LABELS = {
+  DM: '선진국 선호', EM: '신흥국 선호', neutral: '중립',
+} as const
+
+export function dmEmLabel(pref: 'DM' | 'EM' | 'neutral'): string {
+  return DM_EM_LABELS[pref]
+}

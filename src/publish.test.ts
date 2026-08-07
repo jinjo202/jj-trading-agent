@@ -19,6 +19,16 @@ const verdict = {
     thesis: 't', scores: { tech: 70, fund: 65, news: 60 }, risk: 'r',
   }],
   invalidation: ['조건'], disclaimer: 'd',
+  regime: '확장 후반', horizon: '3-6개월 전술적',
+  asset_allocation: { equity: [60, 70], bond: [20, 30], cash: [5, 10], rationale: 'r' },
+  dm_vs_em: { preference: 'DM', rationale: 'r' },
+  // 40 + 15*4 = 100
+  markets: (['US', 'KR', 'JP', 'EU', 'EM'] as const).map((code, i) => ({
+    code, stance: i === 0 ? 'OW' : 'N', weight_pct: i === 0 ? 40 : 15,
+    conviction: 'medium', headline: 'h', rationale: 'r', key_risk: 'k',
+    desk_reads: [{ desk: 'macro', stance: 'neutral', comment: 'c' }],
+  })),
+  trades: [{ action: 'add', instrument: 'XLV', market: 'US', rationale: 'r' }],
 }
 
 test('splitOutputs는 세 종류를 나눠 담는다', () => {

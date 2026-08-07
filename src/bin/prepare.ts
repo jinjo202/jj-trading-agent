@@ -1,8 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { readLatestSnapshot } from '../db.ts'
+import { REGION_ETFS } from '../collect.ts'
 import { fetchKrEconomyNews, fetchSymbolNews } from '../sources/news.ts'
 import { buildBundleA } from '../prepare.ts'
-import type { FeatureSet, NewsItem } from '../types.ts'
+import type { FeatureSet, MarketCode, NewsItem } from '../types.ts'
 
 try {
   const snap = await readLatestSnapshot('features')
@@ -25,11 +26,24 @@ try {
     console.error(`연합뉴스 실패: ${(e as Error).message}`)
   }
 
-  const bundle = buildBundleA(features, market, korea)
+  // 지역 ETF 뉴스. 이게 없으면 뉴스 데스크가 일본·유럽·이머징에 대해
+  // 근거 없이 코멘트하게 된다 — 번들에 없는 것은 쓰지 않는 것이 원칙이므로 여기서 채운다.
+  const regions: Partial<Record<MarketCode, NewsItem[]>> = {}
+  for (const [code, sym] of Object.entries(REGION_ETFS) as [MarketCode, string][]) {
+    try {
+      regions[code] = await fetchSymbolNews(sym, 5)
+    } catch (e) {
+      console.error(`뉴스 ${code}(${sym}) 실패: ${(e as Error).message}`)
+      regions[code] = []
+    }
+  }
+
+  const bundle = buildBundleA(features, market, korea, regions)
   await mkdir(`runs/${bundle.date}`, { recursive: true })
   await writeFile(`runs/${bundle.date}/bundle-a.json`, JSON.stringify(bundle, null, 2))
+  const regionCounts = Object.entries(regions).map(([c, n]) => `${c} ${n?.length ?? 0}`).join(', ')
   console.log(
-    `A단계 번들: runs/${bundle.date}/bundle-a.json (뉴스 미국 ${market.length}, 한국 ${korea.length}, 결측 ${features.missing.length})`,
+    `A단계 번들: runs/${bundle.date}/bundle-a.json (뉴스 미국 ${market.length}, 한국 ${korea.length}, 지역 [${regionCounts}], 결측 ${features.missing.length})`,
   )
   if (features.missing.length > 0) console.log(`스냅샷 결측: ${features.missing.join(', ')}`)
 } catch (e) {

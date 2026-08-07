@@ -2,26 +2,49 @@ import {
   atr, distFromSma, macd, momentum12_1, pctChange,
   realizedVol, rsi, week52Position,
 } from './indicators.ts'
-import { fetchDaily } from './sources/yahoo.ts'
+import { fetchDaily, fetchRegionValuation } from './sources/yahoo.ts'
 import { fetchForeignRatio, fetchNaverDaily } from './sources/naver.ts'
 import { fetchFredSeries, hasFredKey } from './sources/fred.ts'
 import { kstDate, upsertSnapshots } from './db.ts'
-import type { AssetFeature, FeatureSet, MacroBlock, Ohlcv } from './types.ts'
+import { MARKET_CODES } from './types.ts'
+import type {
+  AssetFeature, FeatureSet, MacroBlock, MarketCode, Ohlcv, RegionRelative, RegionValuation,
+} from './types.ts'
 
 export const SYMBOLS: Record<string, string> = {
   '^GSPC': 'S&P 500',
   '^IXIC': '나스닥 종합',
   '^KS11': 'KOSPI',
   '^KQ11': 'KOSDAQ',
+  '^N225': '닛케이225',
+  '^STOXX50E': '유로스톡스50',
   SPY: 'S&P 500 ETF',
   RSP: 'S&P 500 동일가중 ETF',
   EWY: '한국 ETF (USD)',
+  EWJ: '일본 ETF (USD)',
+  VGK: '유럽 ETF (USD)',
+  EEM: '이머징 ETF (USD)',
+  EFA: '선진국 ex-미국·캐나다 ETF (USD)',
+  ACWI: '전세계 ETF (USD)',
   '^VIX': 'VIX',
   '^VIX3M': 'VIX 3M',
   'KRW=X': '원달러',
+  'JPY=X': '달러엔',
+  'EURUSD=X': '유로달러',
   'DX-Y.NYB': '달러인덱스',
   'CL=F': 'WTI',
 }
+
+/**
+ * 시장별 대표 ETF. 전부 USD 표시다 — 현지통화 지수로 지역을 비교하면
+ * 환율 효과가 빠져서 "달러로 벌었나"라는 실제 질문에 답하지 못한다.
+ */
+export const REGION_ETFS: Record<MarketCode, string> = {
+  US: 'SPY', KR: 'EWY', JP: 'EWJ', EU: 'VGK', EM: 'EEM',
+}
+
+/** 지역 상대성과의 기준 지수. */
+export const REGION_BENCHMARK = 'ACWI'
 
 export const SECTOR_ETFS: Record<string, string> = {
   XLK: '기술', XLF: '금융', XLE: '에너지', XLV: '헬스케어',
@@ -128,15 +151,30 @@ function assetFeature(symbol: string, bars: Ohlcv[]): AssetFeature {
   }
 }
 
+/** 지역 ETF 밸류에이션. 하나가 실패해도 나머지는 쓴다 — 없는 것은 빠진 채로 둔다. */
+export async function collectRegionValuations(): Promise<Partial<Record<MarketCode, RegionValuation>>> {
+  const out: Partial<Record<MarketCode, RegionValuation>> = {}
+  for (const [code, etf] of Object.entries(REGION_ETFS) as [MarketCode, string][]) {
+    try {
+      out[code] = await fetchRegionValuation(etf)
+    } catch (e) {
+      console.error(`밸류에이션 수집 실패 ${code}(${etf}): ${(e as Error).message}`)
+    }
+  }
+  return out
+}
+
 export function buildFeatures(
   prices: Record<string, Ohlcv[]>,
   macro: MacroBlock,
   date = kstDate(),
   foreignRatioSamsung: number | null = null,
+  valuation: Partial<Record<MarketCode, RegionValuation>> = {},
 ): FeatureSet {
   const missing: string[] = []
   const expected = [...Object.keys(SYMBOLS), ...Object.keys(SECTOR_ETFS)]
   for (const s of expected) if (!prices[s] || prices[s].length === 0) missing.push(s)
+  for (const code of MARKET_CODES) if (!valuation[code]) missing.push(`valuation:${code}`)
   if (!macro.available) {
     missing.push('fred')
   } else {
@@ -172,12 +210,35 @@ export function buildFeatures(
   const vix = lastOf('^VIX')
   const vix3m = lastOf('^VIX3M')
   const usdkrwCloses = closesOf('KRW=X')
+  const usdjpyCloses = closesOf('JPY=X')
+  const eurusdCloses = closesOf('EURUSD=X')
+  const dxyCloses = closesOf('DX-Y.NYB')
 
   const spy3m = assets['SPY']?.ret3m ?? null
   const rel = (etf: string): number | null => {
     const r = assets[etf]?.ret3m
     return r === undefined || r === null || spy3m === null ? null : r - spy3m
   }
+
+  // 지역 비교의 기준은 SPY가 아니라 ACWI다. SPY 기준으로 재면
+  // "미국 대비"가 되어 미국 자신의 상대성과가 항상 0이 되고 비교가 성립하지 않는다.
+  const bench1m = assets[REGION_BENCHMARK]?.ret1m ?? null
+  const bench3m = assets[REGION_BENCHMARK]?.ret3m ?? null
+  const diff = (a: number | null | undefined, b: number | null): number | null =>
+    a === undefined || a === null || b === null ? null : a - b
+
+  const regions: RegionRelative[] = MARKET_CODES.map((code) => {
+    const etf = REGION_ETFS[code]
+    const f = assets[etf]
+    return {
+      code,
+      etf,
+      ret1m: f?.ret1m ?? null,
+      ret3m: f?.ret3m ?? null,
+      rel1m: diff(f?.ret1m, bench1m),
+      rel3m: diff(f?.ret3m, bench3m),
+    }
+  })
 
   return {
     date,
@@ -193,11 +254,21 @@ export function buildFeatures(
       breadth,
       usdkrw: usdkrwCloses?.at(-1) ?? null,
       usdkrwChange20d: usdkrwCloses ? pctChange(usdkrwCloses, 20) : null,
+      usdjpy: usdjpyCloses?.at(-1) ?? null,
+      usdjpyChange20d: usdjpyCloses ? pctChange(usdjpyCloses, 20) : null,
+      eurusd: eurusdCloses?.at(-1) ?? null,
+      eurusdChange20d: eurusdCloses ? pctChange(eurusdCloses, 20) : null,
+      dxyChange20d: dxyCloses ? pctChange(dxyCloses, 20) : null,
     },
     relative: {
       krVsUs3m: rel('EWY'),
+      benchmark: REGION_BENCHMARK,
+      regions,
+      emVsDmExUs3m: diff(assets['EEM']?.ret3m, assets['EFA']?.ret3m ?? null),
+      emVsAcwi3m: diff(assets['EEM']?.ret3m, bench3m),
       sectors: Object.keys(SECTOR_ETFS).map((etf) => ({ etf, rel3m: rel(etf) })),
     },
+    valuation,
     foreignRatioSamsung,
     missing,
   }
@@ -205,7 +276,9 @@ export function buildFeatures(
 
 export async function runCollect(): Promise<void> {
   const date = kstDate()
-  const [prices, macro] = await Promise.all([collectPrices(), collectMacro()])
+  const [prices, macro, valuation] = await Promise.all([
+    collectPrices(), collectMacro(), collectRegionValuations(),
+  ])
 
   let foreignRatio: number | null = null
   try {
@@ -229,7 +302,7 @@ export async function runCollect(): Promise<void> {
     ]),
   )
 
-  const features = buildFeatures(prices, macro, date, foreignRatio)
+  const features = buildFeatures(prices, macro, date, foreignRatio, valuation)
   await upsertSnapshots([
     { kind: 'prices', date, payload: trimmed },
     { kind: 'macro', date, payload: macro },
