@@ -198,8 +198,13 @@ Start-ScheduledTask     -TaskName "jj-trading-agent-daily"    # 지금 한 번 �
 Unregister-ScheduledTask -TaskName "jj-trading-agent-daily"   # 해제
 ```
 
-> `schtasks /Create`에 경로를 넘길 때 공백 때문에 인용이 깨진다("trading" 에서 잘림).
+> **함정 3.** `schtasks /Create`에 경로를 넘길 때 공백 때문에 인용이 깨진다("trading"에서 잘림).
 > PowerShell `Register-ScheduledTask` cmdlet을 쓰면 이 문제가 없다.
+>
+> **함정 4 — `scripts/daily.cmd`는 ASCII로만 쓴다.** cmd.exe는 `.cmd`를 UTF-8이 아니라
+> 시스템 ANSI 코드페이지(한국어 Windows는 CP949)로 읽는다. 한글 주석을 넣었더니
+> 깨진 바이트가 명령 파싱을 망가뜨려 **07:20 첫 자동 실행이 9009로 죽었고 로그조차 안 남았다**.
+> 날짜도 `%DATE%` 파싱 대신 PowerShell `Get-Date -Format yyyy-MM-dd`를 쓴다(로케일 무관).
 
 **자동 공개가 켜져 있다.** `scripts/daily.cmd`가 `npm run daily -- --publish`를 부르므로
 실행이 성공하면 사람 검토 없이 사이트에 바로 올라간다.
@@ -346,9 +351,10 @@ supabase/migrations/0001_trading_agent_schema.sql
 
 ## 9. 남은 작업 순서 (권장)
 
-1. **07:20 첫 자동 실행 결과 확인** — `logs/daily-<날짜>.log`를 보고 전 단계가 통과했는지 본다.
-   특히 CIO 단계는 실측에서 세 번 실패했다가 고친 자리라 첫 무인 실행 확인이 필요하다.
-   사용량 한도(429)에 걸리면 그 로그에 그대로 찍힌다.
+1. **`web/` 재배포 대기** — 홈·히스토리 페이지를 `force-dynamic`으로 바꾼 커밋(49d4014)이
+   아직 배포되지 않았다. Vercel 무료 티어 일일 배포 한도(100회)에 걸렸고
+   **2026-08-09 09:10 KST**에 풀린다. 그때 §6 방식으로 재배포하면 캐시 지연이 사라진다.
+   지금은 ISR 1시간이라 발행 직후 최대 한 시간 어제 것이 보인다.
 2. **스크리너 섹터 쏠림** — OW 섹터가 3개(헬스케어·금융·기술)인데 모멘텀 상위 24종목이
    전부 반도체로 나온다. `src/screener.ts`의 `rankByMomentum`이 섹터 구분 없이 정렬하기 때문이다.
    섹터별 쿼터(예: 섹터당 최대 N종목)를 넣어야 후보가 실제로 분산된다.
