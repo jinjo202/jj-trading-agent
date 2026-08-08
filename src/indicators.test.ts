@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   sma, ema, rsi, macd, atr, realizedVol, momentum12_1,
-  week52Position, distFromSma, pctChange, zscore, pctRank,
+  week52Position, distFromSma, pctChange, zscore, pctRank, correlation, logReturns,
 } from './indicators.ts'
 import type { Ohlcv } from './types.ts'
 
@@ -94,4 +94,31 @@ test('pctRank는 null을 제외하고 0-100 백분위', () => {
 test('pctRank는 value가 분포 밖이어도 0-100으로 클램프된다', () => {
   assert.equal(pctRank([10, 20, 30], 40), 100)
   assert.equal(pctRank([10, 20, 30], 5), 0)
+})
+
+test('correlation은 완전 동조/역동조/무관을 구분한다', () => {
+  const a = Array.from({ length: 40 }, (_, i) => Math.sin(i))
+  const same = a.map((x) => x * 2)          // 완전 양의 상관
+  const opposite = a.map((x) => -x * 3)     // 완전 음의 상관
+  assert.ok(Math.abs((correlation(a, same) as number) - 1) < 1e-9)
+  assert.ok(Math.abs((correlation(a, opposite) as number) + 1) < 1e-9)
+})
+
+// 표본이 적으면 상관계수는 소음이다. 숫자를 내주는 것보다 모른다고 하는 편이 낫다.
+test('correlation은 표본이 20개 미만이면 null', () => {
+  const a = Array.from({ length: 19 }, (_, i) => i)
+  assert.equal(correlation(a, a), null)
+})
+
+test('correlation은 결측 쌍을 건너뛰고 분산이 0이면 null', () => {
+  const a = Array.from({ length: 30 }, (_, i) => (i === 5 ? null : i))
+  const b = Array.from({ length: 30 }, (_, i) => (i === 5 ? null : i * 2))
+  assert.ok((correlation(a, b) as number) > 0.99)
+  assert.equal(correlation(Array(30).fill(1), Array(30).fill(2)), null)
+})
+
+test('logReturns는 종가를 일간 로그수익률로 바꾸고 길이가 1 줄어든다', () => {
+  const r = logReturns([100, 110, 121])
+  assert.equal(r.length, 2)
+  assert.ok(Math.abs(r[0] - Math.log(1.1)) < 1e-12)
 })

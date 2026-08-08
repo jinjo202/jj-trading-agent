@@ -57,6 +57,25 @@ export type MarketRead = {
  * 지역별 상대 성과. 전부 USD 표시 ETF로 계산한다 —
  * 현지통화 지수로 비교하면 환율 효과가 빠져 배분 판단이 틀어진다.
  */
+/**
+ * 지역별 금리·물가. 미국 외는 FRED 월간 시리즈라 관측일이 1-2개월 늦다.
+ * 그래서 값마다 `*AsOf`를 함께 싣는다 — agent가 오늘 값으로 오해하면
+ * 정책 전환 시점 판단이 통째로 틀어진다.
+ */
+export type RegionMacro = {
+  policyRate: number | null
+  policyRateAsOf: string | null
+  bond10y: number | null
+  bond10yAsOf: string | null
+  cpiYoY: number | null
+  cpiYoYAsOf: string | null
+  /** 대리지표를 쓴 경우 무엇으로 대체했는지. 없으면 null. */
+  proxyNote: string | null
+}
+
+/** 두 시장 간 일간수익률 상관계수(최근 60거래일). 분산 효과의 실측 근거다. */
+export type RegionCorr = { a: MarketCode; b: MarketCode; corr60d: number | null }
+
 /** 지역 대표 ETF의 밸류에이션. 지역 간 상대 밸류 비교의 근거다. */
 export type RegionValuation = {
   symbol: string
@@ -127,6 +146,12 @@ export type FeatureSet = {
   }
   /** 시장별 밸류에이션. 지역 배분에서 "싼가 비싼가"의 유일한 실측 근거다. */
   valuation: Partial<Record<MarketCode, RegionValuation>>
+  /** 시장별 금리·물가. 미국 외 매크로 판단이 환율 한 경로에만 의존하지 않게 한다. */
+  regionMacro: Partial<Record<MarketCode, RegionMacro>>
+  /** 시장 쌍별 상관계수. 개별 변동성만으로 잡은 비중이 실제로 분산됐는지 확인한다. */
+  regionCorr: RegionCorr[]
+  /** 섹터 ETF 밸류에이션(키는 ETF 티커). 섹터 판단이 모멘텀 단독이 되지 않게 한다. */
+  sectorValuation: Partial<Record<string, RegionValuation>>
   foreignRatioSamsung: number | null
   missing: string[]               // 수집 실패한 심볼/시리즈. 다운스트림 agent가 flag로 쓴다
 }

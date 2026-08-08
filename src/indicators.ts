@@ -121,3 +121,47 @@ export function pctRank(values: (number | null)[], value: number): number | null
   const below = v.filter((x) => x < value).length
   return (Math.min(below, v.length - 1) / (v.length - 1)) * 100
 }
+
+/**
+ * 두 수익률 계열의 피어슨 상관계수. 길이가 다르면 뒤쪽(최근) 기준으로 맞춘다.
+ *
+ * 자산배분 데스크가 명시적으로 요구한 값이다 — 개별 변동성만으로 비중을 잡으면
+ * "둘 다 변동성 15%"인 두 시장이 상관 0.95인지 0.2인지 구분하지 못해
+ * 분산됐다고 착각한 집중 포지션이 나온다.
+ */
+export function correlation(a: (number | null)[], b: (number | null)[]): number | null {
+  const n = Math.min(a.length, b.length)
+  const xs: number[] = []
+  const ys: number[] = []
+  for (let i = 0; i < n; i++) {
+    const x = a[a.length - n + i]
+    const y = b[b.length - n + i]
+    if (x === null || y === null || !Number.isFinite(x) || !Number.isFinite(y)) continue
+    xs.push(x)
+    ys.push(y)
+  }
+  if (xs.length < 20) return null // 표본이 너무 적으면 상관계수는 소음이다
+  const mx = xs.reduce((s, v) => s + v, 0) / xs.length
+  const my = ys.reduce((s, v) => s + v, 0) / ys.length
+  let cov = 0
+  let vx = 0
+  let vy = 0
+  for (let i = 0; i < xs.length; i++) {
+    const dx = xs[i] - mx
+    const dy = ys[i] - my
+    cov += dx * dy
+    vx += dx * dx
+    vy += dy * dy
+  }
+  if (vx === 0 || vy === 0) return null
+  return cov / Math.sqrt(vx * vy)
+}
+
+/** 종가 계열을 일간 로그수익률로. 상관계수는 가격이 아니라 수익률로 재야 한다. */
+export function logReturns(closes: number[]): number[] {
+  const out: number[] = []
+  for (let i = 1; i < closes.length; i++) {
+    if (closes[i - 1] > 0 && closes[i] > 0) out.push(Math.log(closes[i] / closes[i - 1]))
+  }
+  return out
+}

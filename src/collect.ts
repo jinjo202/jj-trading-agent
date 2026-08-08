@@ -1,5 +1,5 @@
 import {
-  atr, distFromSma, macd, momentum12_1, pctChange,
+  atr, correlation, distFromSma, logReturns, macd, momentum12_1, pctChange,
   realizedVol, rsi, week52Position,
 } from './indicators.ts'
 import { fetchDaily, fetchRegionValuation } from './sources/yahoo.ts'
@@ -8,7 +8,8 @@ import { fetchFredSeries, hasFredKey } from './sources/fred.ts'
 import { kstDate, upsertSnapshots } from './db.ts'
 import { MARKET_CODES } from './types.ts'
 import type {
-  AssetFeature, FeatureSet, MacroBlock, MarketCode, Ohlcv, RegionRelative, RegionValuation,
+  AssetFeature, FeatureSet, MacroBlock, MarketCode, Ohlcv,
+  RegionCorr, RegionMacro, RegionRelative, RegionValuation,
 } from './types.ts'
 
 export const SYMBOLS: Record<string, string> = {
@@ -151,6 +152,94 @@ function assetFeature(symbol: string, bars: Ohlcv[]): AssetFeature {
   }
 }
 
+/**
+ * 시장별 금리·물가. 시리즈 ID는 실측으로 골랐다 —
+ * FRED에 존재해도 값이 안 오거나 반년씩 밀린 것들이 있어서 최근값이 실제로 오는 것만 남겼다.
+ *
+ * 확인 결과: 일본·한국 CPI는 쓸 만한 FRED 시리즈를 찾지 못했다(여러 후보가 전부 빈 응답).
+ * 유로존 10년물(IRLTLT01EZM156N)은 7개월 밀려 있어 독일 분트로 대체했다 — 유로존 벤치마크 금리다.
+ */
+const REGION_MACRO_SERIES: Record<MarketCode, {
+  policy?: string; bond10y?: string; cpiIndex?: string; proxyNote?: string
+}> = {
+  US: { policy: 'DFEDTARU', bond10y: 'DGS10' },
+  EU: {
+    policy: 'ECBDFR', bond10y: 'IRLTLT01DEM156N', cpiIndex: 'CP0000EZ19M086NEST',
+    proxyNote: '10년물은 독일 분트(유로존 벤치마크), CPI는 유로존 HICP 지수에서 전년동월비 계산',
+  },
+  JP: {
+    policy: 'IRSTCI01JPM156N', bond10y: 'IRLTLT01JPM156N',
+    proxyNote: '정책금리는 단기금리 대리지표. CPI는 FRED에서 확보 실패',
+  },
+  KR: {
+    policy: 'IR3TIB01KRM156N', bond10y: 'IRLTLT01KRM156N',
+    proxyNote: '정책금리는 3개월 은행간금리 대리지표. CPI는 FRED에서 확보 실패',
+  },
+  EM: { proxyNote: 'EM은 단일 통화·금리 주체가 없어 지역 매크로를 수집하지 않는다' },
+}
+
+/** 마지막 유효 관측값과 그 날짜를 함께 돌려준다. 날짜 없이 값만 쓰면 지연을 못 본다. */
+function lastWithDate(
+  obs: { date: string; value: number | null }[],
+): { value: number | null; asOf: string | null } {
+  const hit = [...obs].reverse().find((o) => o.value !== null)
+  return { value: hit?.value ?? null, asOf: hit?.date ?? null }
+}
+
+export async function collectRegionMacro(): Promise<Partial<Record<MarketCode, RegionMacro>>> {
+  const out: Partial<Record<MarketCode, RegionMacro>> = {}
+  if (!hasFredKey()) {
+    console.error('FRED_API_KEY 없음 — 지역 매크로를 건너뜁니다')
+    return out
+  }
+  const start = new Date(Date.now() - 800 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+
+  for (const [code, cfg] of Object.entries(REGION_MACRO_SERIES) as [MarketCode, typeof REGION_MACRO_SERIES[MarketCode]][]) {
+    const get = async (id?: string) => {
+      if (!id) return { value: null, asOf: null }
+      try {
+        return lastWithDate(await fetchFredSeries(id, start))
+      } catch (e) {
+        console.error(`지역 매크로 ${code}/${id} 실패: ${(e as Error).message}`)
+        return { value: null, asOf: null }
+      }
+    }
+    const policy = await get(cfg.policy)
+    const bond = await get(cfg.bond10y)
+
+    let cpi: { value: number | null; asOf: string | null } = { value: null, asOf: null }
+    if (cfg.cpiIndex) {
+      try {
+        const obs = await fetchFredSeries(cfg.cpiIndex, start)
+        cpi = { value: yoy(obs), asOf: lastWithDate(obs).asOf }
+      } catch (e) {
+        console.error(`지역 CPI ${code} 실패: ${(e as Error).message}`)
+      }
+    }
+
+    out[code] = {
+      policyRate: policy.value, policyRateAsOf: policy.asOf,
+      bond10y: bond.value, bond10yAsOf: bond.asOf,
+      cpiYoY: cpi.value, cpiYoYAsOf: cpi.asOf,
+      proxyNote: cfg.proxyNote ?? null,
+    }
+  }
+  return out
+}
+
+/** 섹터 ETF 밸류에이션. 지역 ETF와 같은 경로를 쓴다 — 이미 있는 것을 다시 만들지 않는다. */
+export async function collectSectorValuations(): Promise<Partial<Record<string, RegionValuation>>> {
+  const out: Partial<Record<string, RegionValuation>> = {}
+  for (const etf of Object.keys(SECTOR_ETFS)) {
+    try {
+      out[etf] = await fetchRegionValuation(etf)
+    } catch (e) {
+      console.error(`섹터 밸류에이션 실패 ${etf}: ${(e as Error).message}`)
+    }
+  }
+  return out
+}
+
 /** 지역 ETF 밸류에이션. 하나가 실패해도 나머지는 쓴다 — 없는 것은 빠진 채로 둔다. */
 export async function collectRegionValuations(): Promise<Partial<Record<MarketCode, RegionValuation>>> {
   const out: Partial<Record<MarketCode, RegionValuation>> = {}
@@ -170,6 +259,8 @@ export function buildFeatures(
   date = kstDate(),
   foreignRatioSamsung: number | null = null,
   valuation: Partial<Record<MarketCode, RegionValuation>> = {},
+  regionMacro: Partial<Record<MarketCode, RegionMacro>> = {},
+  sectorValuation: Partial<Record<string, RegionValuation>> = {},
 ): FeatureSet {
   const missing: string[] = []
   const expected = [...Object.keys(SYMBOLS), ...Object.keys(SECTOR_ETFS)]
@@ -269,6 +360,27 @@ export function buildFeatures(
       sectors: Object.keys(SECTOR_ETFS).map((etf) => ({ etf, rel3m: rel(etf) })),
     },
     valuation,
+    regionMacro,
+    // 상관계수는 USD ETF 로그수익률 기준. 지역 비교와 같은 통화 기준이어야 의미가 맞는다.
+    regionCorr: (() => {
+      const rets = new Map<MarketCode, number[]>()
+      for (const code of MARKET_CODES) {
+        const c = closesOf(REGION_ETFS[code])
+        if (c) rets.set(code, logReturns(c).slice(-60))
+      }
+      const pairs: RegionCorr[] = []
+      for (let i = 0; i < MARKET_CODES.length; i++) {
+        for (let j = i + 1; j < MARKET_CODES.length; j++) {
+          const a = MARKET_CODES[i]
+          const b = MARKET_CODES[j]
+          const ra = rets.get(a)
+          const rb = rets.get(b)
+          pairs.push({ a, b, corr60d: ra && rb ? correlation(ra, rb) : null })
+        }
+      }
+      return pairs
+    })(),
+    sectorValuation,
     foreignRatioSamsung,
     missing,
   }
@@ -276,8 +388,9 @@ export function buildFeatures(
 
 export async function runCollect(): Promise<void> {
   const date = kstDate()
-  const [prices, macro, valuation] = await Promise.all([
+  const [prices, macro, valuation, regionMacro, sectorValuation] = await Promise.all([
     collectPrices(), collectMacro(), collectRegionValuations(),
+    collectRegionMacro(), collectSectorValuations(),
   ])
 
   let foreignRatio: number | null = null
@@ -302,7 +415,9 @@ export async function runCollect(): Promise<void> {
     ]),
   )
 
-  const features = buildFeatures(prices, macro, date, foreignRatio, valuation)
+  const features = buildFeatures(
+    prices, macro, date, foreignRatio, valuation, regionMacro, sectorValuation,
+  )
   await upsertSnapshots([
     { kind: 'prices', date, payload: trimmed },
     { kind: 'macro', date, payload: macro },
