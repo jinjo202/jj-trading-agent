@@ -7,6 +7,11 @@ const u = (ticker: string, market: 'KR' | 'US'): UniverseRow => ({
   ticker, market, name: ticker, sector: 'Technology', active: true,
 })
 
+/** 섹터를 지정해야 하는 테스트용. 섹터 쿼터 동작을 보려면 섹터가 갈려야 한다. */
+const us = (ticker: string, sector: string | null): UniverseRow => ({
+  ticker, market: 'US', name: ticker, sector, active: true,
+})
+
 const q = (
   symbol: string, price: number, vol: number, chg: number, currency: string,
 ): QuoteRow => ({
@@ -61,6 +66,53 @@ test('모멘텀이 null인 종목은 랭킹에서 빠진다', () => {
   assert.deepEqual(rankByMomentum(pairs, 5).map((p) => p.row.ticker), ['B'])
 })
 
+// 한 섹터가 상위를 독식하면 후보군이 사실상 한 테마가 된다.
+// 실측에서 OW 섹터 3개에 후보 24종목이 전부 반도체로 나온 적이 있다.
+test('모멘텀 랭킹은 한 섹터가 상위를 독식하지 못하게 섹터를 번갈아 뽑는다', () => {
+  const rows = [
+    us('T1', 'Technology'), us('T2', 'Technology'), us('T3', 'Technology'),
+    us('H1', 'Healthcare'), us('H2', 'Healthcare'),
+  ]
+  const quotes = [
+    q('T1', 10, 1e6, 99, 'USD'), q('T2', 10, 1e6, 98, 'USD'), q('T3', 10, 1e6, 97, 'USD'),
+    q('H1', 10, 1e6, 50, 'USD'), q('H2', 10, 1e6, 40, 'USD'),
+  ]
+  const pairs = filterByLiquidity(rows, quotes, 1)
+  // 단순 정렬이면 T1,T2,T3 — 기술 독식. 라운드로빈이면 섹터가 번갈아 나온다.
+  assert.deepEqual(rankByMomentum(pairs, 4).map((p) => p.row.ticker), ['T1', 'H1', 'T2', 'H2'])
+})
+
+// 고정 쿼터였다면 남는 자리가 그대로 비지만, 라운드로빈은 자연히 재분배된다.
+test('종목이 모자란 섹터의 자리는 다른 섹터가 가져간다', () => {
+  const rows = [
+    us('T1', 'Technology'), us('T2', 'Technology'), us('T3', 'Technology'),
+    us('H1', 'Healthcare'),
+  ]
+  const quotes = [
+    q('T1', 10, 1e6, 99, 'USD'), q('T2', 10, 1e6, 98, 'USD'), q('T3', 10, 1e6, 97, 'USD'),
+    q('H1', 10, 1e6, 50, 'USD'),
+  ]
+  const pairs = filterByLiquidity(rows, quotes, 1)
+  assert.deepEqual(rankByMomentum(pairs, 4).map((p) => p.row.ticker), ['T1', 'H1', 'T2', 'T3'])
+})
+
+test('섹터 순서는 각 섹터 1위의 모멘텀을 따른다', () => {
+  const rows = [us('T1', 'Technology'), us('H1', 'Healthcare')]
+  const quotes = [q('T1', 10, 1e6, 10, 'USD'), q('H1', 10, 1e6, 80, 'USD')]
+  const pairs = filterByLiquidity(rows, quotes, 1)
+  assert.deepEqual(rankByMomentum(pairs, 2).map((p) => p.row.ticker), ['H1', 'T1'])
+})
+
+test('sector가 null인 종목들은 하나의 버킷으로 묶인다', () => {
+  const rows = [us('N1', null), us('N2', null), us('T1', 'Technology')]
+  const quotes = [
+    q('N1', 10, 1e6, 99, 'USD'), q('N2', 10, 1e6, 98, 'USD'), q('T1', 10, 1e6, 50, 'USD'),
+  ]
+  const pairs = filterByLiquidity(rows, quotes, 1)
+  // 미분류가 각자 버킷이었다면 N1,N2가 연달아 먼저 나온다. 한 통이면 T1이 두 번째다.
+  assert.deepEqual(rankByMomentum(pairs, 3).map((p) => p.row.ticker), ['N1', 'T1', 'N2'])
+})
+
 test('스코어는 모멘텀과 퀄리티를 합치고, 퀄리티 결측은 그 항만 0으로 둔다', () => {
   const rows = [u('A', 'US'), u('B', 'US'), u('C', 'US')]
   const quotes = [q('A', 10, 1e6, 10, 'USD'), q('B', 10, 1e6, 50, 'USD'), q('C', 10, 1e6, 90, 'USD')]
@@ -76,6 +128,27 @@ test('스코어는 모멘텀과 퀄리티를 합치고, 퀄리티 결측은 그 
   const c = out.find((x) => x.ticker === 'C')!
   assert.equal(c.roe, null, '결측은 null로 남고 0으로 채우지 않는다')
   assert.ok(Number.isFinite(c.score), '퀄리티 결측이 점수를 NaN으로 만들지 않는다')
+})
+
+// 24종목 단계에서만 균형을 잡으면 최종 12에서 강한 섹터가 다시 올라온다.
+// 실측에서 그렇게 12종목 중 8개가 기술주로 돌아왔다.
+test('scoreCandidates도 섹터를 번갈아 뽑는다', () => {
+  const rows = [
+    us('T1', 'Technology'), us('T2', 'Technology'), us('T3', 'Technology'),
+    us('H1', 'Healthcare'), us('H2', 'Healthcare'),
+  ]
+  // 기술주가 모멘텀·퀄리티 모두 상위라 점수만으로 자르면 T가 독식한다.
+  const quotes = [
+    q('T1', 10, 1e6, 99, 'USD'), q('T2', 10, 1e6, 98, 'USD'), q('T3', 10, 1e6, 97, 'USD'),
+    q('H1', 10, 1e6, 20, 'USD'), q('H2', 10, 1e6, 10, 'USD'),
+  ]
+  const funds = new Map<string, Fundamentals>([
+    ['T1', f(0.9, 0.9)], ['T2', f(0.8, 0.8)], ['T3', f(0.7, 0.7)],
+    ['H1', f(0.1, 0.1)], ['H2', f(0.05, 0.05)],
+  ])
+  const pairs = filterByLiquidity(rows, quotes, 1)
+  const out = scoreCandidates(pairs, funds, 4).map((c) => c.ticker)
+  assert.deepEqual(out, ['T1', 'H1', 'T2', 'H2'])
 })
 
 test('scoreCandidates는 turnover를 현지통화 그대로 싣고 tech는 아직 null', () => {
