@@ -11,6 +11,9 @@
 - `features.macro.unrate` — 실업률
 - `features.macro.hySpread` — 하이일드 스프레드. 확대는 신용 스트레스
 - `features.regime.vixLevel`, `vixTerm` — `vixTerm`이 1을 넘으면 백워데이션이고 단기 스트레스다
+- `features.regime.breadth` — **RSP(동일가중) / SPY(시총가중) 비율의 60일 평균 대비 이격**이다.
+  양수면 평균적인 종목이 지수를 따라오고 있다는 뜻이고, 음수면 소수 대형주가 지수를 끌고 있다는 뜻이다.
+  0 근처는 어느 쪽도 아니라는 뜻이므로 레짐 판정의 근거로 쓰지 말고 그 사실만 적어라.
 
 **시장별 금리·물가 (`features.regionMacro.<코드>`)**
 - `policyRate` / `bond10y` / `cpiYoY` 와 각각의 `*AsOf`
