@@ -2,7 +2,8 @@ import { getVerdictHistory, historyPoint } from '@/lib/queries'
 import { signalLabel } from '@/lib/format'
 import { ScoreTrendChart } from './ScoreTrendChart'
 
-export const revalidate = 3600
+// 오늘 발행분이 목록에 바로 보여야 하므로 캐시하지 않는다(app/page.tsx와 같은 이유).
+export const dynamic = 'force-dynamic'
 
 export default async function HistoryPage() {
   const rows = await getVerdictHistory(90)

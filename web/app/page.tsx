@@ -6,7 +6,13 @@ import { StanceGrid } from '@/components/StanceGrid'
 import { MarketCard } from '@/components/MarketCard'
 import { TradeList } from '@/components/TradeList'
 
-export const revalidate = 3600
+/**
+ * 캐시하지 않는다. 이 페이지의 존재 이유가 "오늘의 판단"인데
+ * ISR(revalidate=3600)은 발행 직후 최대 한 시간 동안 어제 것을 보여준다 —
+ * 실제로 파이프라인이 07:20에 발행해도 화면은 어제 날짜였다.
+ * 개인 대시보드라 트래픽이 적어 매 요청 조회의 비용은 무시할 수 있다.
+ */
+export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
   const latest = await getLatestPublishedVerdict()
