@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { AgentOutput, CompanyReport, DailyVerdict, SnapshotKind, UniverseRow } from './types.ts'
+import type {
+  AgentOutput, CompanyReport, DailyVerdict, MarketCode, RegionValuation, SnapshotKind, UniverseRow,
+} from './types.ts'
 
 let client: SupabaseClient | null = null
 
@@ -57,6 +59,34 @@ export async function readLatestSnapshot(
   if (error) throw new Error(`market_snapshots 읽기 실패 (${kind}): ${error.message}`)
   const row = data?.[0]
   return row ? { date: row.date as string, payload: row.payload } : null
+}
+
+/**
+ * 과거 features 스냅샷에서 valuation 블록만 뽑아온다.
+ *
+ * `payload->valuation`으로 잘라 받는 이유: features 스냅샷 하나가 수십 KB인데
+ * 밸류에이션 백분위에 필요한 건 그중 몇백 바이트뿐이다. 전체를 끌어오면
+ * 400일치가 수십 MB가 된다.
+ */
+export async function readValuationHistory(
+  beforeDate: string,
+  limit = 400,
+): Promise<{ date: string; valuation: Partial<Record<MarketCode, RegionValuation>> }[]> {
+  const { data, error } = await db()
+    .from('market_snapshots')
+    .select('date,payload->valuation')
+    .eq('kind', 'features')
+    .lt('date', beforeDate)
+    .order('date', { ascending: false })
+    .limit(limit)
+  if (error) throw new Error(`밸류에이션 히스토리 조회 실패: ${error.message}`)
+  return (data ?? [])
+    .map((r) => ({
+      date: r.date as string,
+      valuation: (r.valuation ?? {}) as Partial<Record<MarketCode, RegionValuation>>,
+    }))
+    // valuation 수집 이전(2026-08-07 이전) 스냅샷은 이 블록이 없다. 표본에서 뺀다.
+    .filter((r) => Object.keys(r.valuation).length > 0)
 }
 
 export async function readOpenReportRequests(

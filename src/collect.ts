@@ -1,15 +1,15 @@
 import {
   atr, correlation, distFromSma, logReturns, macd, momentum12_1, pctChange,
-  realizedVol, rsi, week52Position,
+  pctRank, realizedVol, rsi, week52Position,
 } from './indicators.ts'
 import { fetchDaily, fetchRegionValuation } from './sources/yahoo.ts'
 import { fetchForeignRatio, fetchNaverDaily } from './sources/naver.ts'
 import { fetchFredSeries, hasFredKey } from './sources/fred.ts'
-import { kstDate, upsertSnapshots } from './db.ts'
+import { kstDate, readValuationHistory, upsertSnapshots } from './db.ts'
 import { MARKET_CODES } from './types.ts'
 import type {
   AssetFeature, FeatureSet, MacroBlock, MarketCode, Ohlcv,
-  RegionCorr, RegionMacro, RegionRelative, RegionValuation,
+  RegionCorr, RegionMacro, RegionRelative, RegionValuation, RegionValuationRanked,
 } from './types.ts'
 
 export const SYMBOLS: Record<string, string> = {
@@ -256,6 +256,44 @@ export async function collectRegionMacro(): Promise<Partial<Record<MarketCode, R
   return out
 }
 
+/**
+ * 백분위를 내주기 위한 최소 표본. 60거래일 = 약 3개월.
+ *
+ * 이보다 적으면 백분위가 정보가 아니라 소음이다 — 추세장에서 20일치로 재면
+ * 거의 모든 값이 0 또는 100으로 나와 "역사적 고점"처럼 보이는 착시를 만든다.
+ * 표본이 모자라면 숫자를 지어내지 않고 null을 주고, historyDays로 진행도를 알린다.
+ */
+export const MIN_VALUATION_HISTORY = 60
+
+/**
+ * 현재 밸류에이션에 자기 역사 대비 백분위를 붙인다.
+ * 순수 함수 — DB 접근은 호출부가 한다.
+ */
+export function rankValuationVsHistory(
+  current: Partial<Record<MarketCode, RegionValuation>>,
+  history: { valuation: Partial<Record<MarketCode, RegionValuation>> }[],
+): Partial<Record<MarketCode, RegionValuationRanked>> {
+  const out: Partial<Record<MarketCode, RegionValuationRanked>> = {}
+  for (const [code, v] of Object.entries(current) as [MarketCode, RegionValuation][]) {
+    const past = history.map((h) => h.valuation[code]).filter((x): x is RegionValuation => !!x)
+    const enough = past.length >= MIN_VALUATION_HISTORY
+    const rank = (
+      pick: (x: RegionValuation) => number | null,
+      now: number | null,
+    ): number | null => {
+      if (!enough || now === null) return null
+      return pctRank(past.map(pick), now)
+    }
+    out[code] = {
+      ...v,
+      perPctile: rank((x) => x.per, v.per),
+      pbrPctile: rank((x) => x.pbr, v.pbr),
+      historyDays: past.length,
+    }
+  }
+  return out
+}
+
 /** 섹터 ETF 밸류에이션. 지역 ETF와 같은 경로를 쓴다 — 이미 있는 것을 다시 만들지 않는다. */
 export async function collectSectorValuations(): Promise<Partial<Record<string, RegionValuation>>> {
   const out: Partial<Record<string, RegionValuation>> = {}
@@ -287,7 +325,7 @@ export function buildFeatures(
   macro: MacroBlock,
   date = kstDate(),
   foreignRatioSamsung: number | null = null,
-  valuation: Partial<Record<MarketCode, RegionValuation>> = {},
+  valuation: Partial<Record<MarketCode, RegionValuationRanked>> = {},
   regionMacro: Partial<Record<MarketCode, RegionMacro>> = {},
   sectorValuation: Partial<Record<string, RegionValuation>> = {},
 ): FeatureSet {
@@ -444,8 +482,25 @@ export async function runCollect(): Promise<void> {
     ]),
   )
 
+  // 오늘 이전 스냅샷에서 밸류에이션 히스토리를 읽어 자기 역사 대비 위치를 계산한다.
+  // 실패해도 수집 전체를 멈추지 않는다 — 백분위가 없을 뿐 나머지는 온전하다.
+  let ranked: Partial<Record<MarketCode, RegionValuationRanked>>
+  try {
+    const history = await readValuationHistory(date)
+    ranked = rankValuationVsHistory(valuation, history)
+    const days = Object.values(ranked)[0]?.historyDays ?? 0
+    console.log(
+      days >= MIN_VALUATION_HISTORY
+        ? `밸류에이션 히스토리 ${days}일 — 자기 역사 대비 백분위 계산됨`
+        : `밸류에이션 히스토리 ${days}일 (백분위는 ${MIN_VALUATION_HISTORY}일부터)`,
+    )
+  } catch (e) {
+    console.error(`밸류에이션 히스토리 실패: ${(e as Error).message}`)
+    ranked = rankValuationVsHistory(valuation, [])
+  }
+
   const features = buildFeatures(
-    prices, macro, date, foreignRatio, valuation, regionMacro, sectorValuation,
+    prices, macro, date, foreignRatio, ranked, regionMacro, sectorValuation,
   )
   await upsertSnapshots([
     { kind: 'prices', date, payload: trimmed },

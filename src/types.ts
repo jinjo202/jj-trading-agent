@@ -85,12 +85,27 @@ export type RegionMacro = {
 /** 두 시장 간 일간수익률 상관계수(최근 60거래일). 분산 효과의 실측 근거다. */
 export type RegionCorr = { a: MarketCode; b: MarketCode; corr60d: number | null }
 
-/** 지역 대표 ETF의 밸류에이션. 지역 간 상대 밸류 비교의 근거다. */
+/** 지역 대표 ETF의 밸류에이션 측정값. Yahoo에서 받은 그대로다. */
 export type RegionValuation = {
   symbol: string
   per: number | null
   pbr: number | null
   psr: number | null
+}
+
+/**
+ * 측정값 + **자기 역사 대비 위치**. 스냅샷에 저장되는 형태다.
+ *
+ * 횡단면 비교("미국이 한국보다 비싸다")만으로는 배분 판단이 안 된다 —
+ * 지역 간 배수 차이의 상당 부분은 섹터 구성 차이라서 원래 다르기 때문이다.
+ * "그 시장 자신의 과거 대비 지금 어디인가"가 진짜 신호이고, 그게 이 필드다.
+ */
+export type RegionValuationRanked = RegionValuation & {
+  /** 과거 관측치 중 현재값보다 낮은 것의 비율(0-100). 표본 부족이면 null. */
+  perPctile: number | null
+  pbrPctile: number | null
+  /** 백분위 계산에 쓴 과거 관측일 수. 작으면 백분위를 신뢰하면 안 된다. */
+  historyDays: number
 }
 
 export type RegionRelative = {
@@ -154,7 +169,7 @@ export type FeatureSet = {
     sectors: { etf: string; rel3m: number | null }[]  // 각 섹터 ETF 3개월 수익률 - SPY
   }
   /** 시장별 밸류에이션. 지역 배분에서 "싼가 비싼가"의 유일한 실측 근거다. */
-  valuation: Partial<Record<MarketCode, RegionValuation>>
+  valuation: Partial<Record<MarketCode, RegionValuationRanked>>
   /** 시장별 금리·물가. 미국 외 매크로 판단이 환율 한 경로에만 의존하지 않게 한다. */
   regionMacro: Partial<Record<MarketCode, RegionMacro>>
   /** 시장 쌍별 상관계수. 개별 변동성만으로 잡은 비중이 실제로 분산됐는지 확인한다. */
