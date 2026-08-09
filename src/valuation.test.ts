@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { MIN_VALUATION_HISTORY, rankValuationVsHistory } from './collect.ts'
+import { MIN_VALUATION_HISTORY, cpiFromObs, rankValuationVsHistory } from './collect.ts'
 import type { MarketCode, RegionValuation } from './types.ts'
 
 const v = (per: number, pbr = 2): RegionValuation => ({ symbol: 'SPY', per, pbr, psr: 1 })
@@ -54,4 +54,31 @@ test('시장별로 히스토리 개수를 따로 센다', () => {
   const out = rankValuationVsHistory({ US: v(22), KR: v(11) }, history)
   assert.equal(out.US?.historyDays, 2)
   assert.equal(out.KR?.historyDays, 1)
+})
+
+// 소스마다 CPI 형태가 다르다 — 일본 통계청은 지수, OECD 한국은 이미 전년동월비 퍼센트.
+// 이 변환을 헷갈리면 3%가 300%가 되어 그대로 매크로 판단에 들어간다.
+test('cpiFromObs는 지수를 전년동월비 비율로 바꾼다', () => {
+  // 13개월치: 100에서 시작해 마지막이 103 → +3%
+  const obs = Array.from({ length: 13 }, (_, i) => ({
+    date: `2025-${String(i + 1).padStart(2, '0')}-01`,
+    value: i === 12 ? 103 : 100,
+  }))
+  const out = cpiFromObs(obs, 'index')
+  assert.ok(Math.abs((out.value as number) - 0.03) < 1e-12)
+  assert.equal(out.asOf, '2025-13-01')
+})
+
+test('cpiFromObs는 퍼센트 시리즈를 100으로 나눠 비율로 만든다', () => {
+  const out = cpiFromObs([{ date: '2026-05-01', value: 3.14 }], 'percent')
+  assert.ok(Math.abs((out.value as number) - 0.0314) < 1e-12)
+  assert.equal(out.asOf, '2026-05-01')
+})
+
+test('cpiFromObs는 결측을 null로 두고 마지막 유효 관측일을 쓴다', () => {
+  const out = cpiFromObs([{ date: '2026-04-01', value: 2 }, { date: '2026-05-01', value: null }], 'percent')
+  assert.equal(out.value, 0.02)
+  assert.equal(out.asOf, '2026-04-01')
+  assert.equal(cpiFromObs([], 'percent').value, null)
+  assert.equal(cpiFromObs([], 'index').value, null)
 })

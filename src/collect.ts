@@ -5,6 +5,7 @@ import {
 import { fetchDaily, fetchRegionValuation } from './sources/yahoo.ts'
 import { fetchForeignRatio, fetchNaverDaily } from './sources/naver.ts'
 import { fetchFredSeries, hasFredKey } from './sources/fred.ts'
+import { fetchDbnomicsSeries } from './sources/dbnomics.ts'
 import { kstDate, readValuationHistory, upsertSnapshots } from './db.ts'
 import { MARKET_CODES } from './types.ts'
 import type {
@@ -156,11 +157,18 @@ function assetFeature(symbol: string, bars: Ohlcv[]): AssetFeature {
  * 시장별 금리·물가. 시리즈 ID는 실측으로 골랐다 —
  * FRED에 존재해도 값이 안 오거나 반년씩 밀린 것들이 있어서 최근값이 실제로 오는 것만 남겼다.
  *
- * 확인 결과: 일본·한국 CPI는 쓸 만한 FRED 시리즈를 찾지 못했다(여러 후보가 전부 빈 응답).
  * 유로존 10년물(IRLTLT01EZM156N)은 7개월 밀려 있어 독일 분트로 대체했다 — 유로존 벤치마크 금리다.
+ * 일본·한국 CPI는 FRED에 최신 시리즈가 없어(각각 2021·2023년에 갱신 중단) DBnomics로 뺐다.
  */
 const REGION_MACRO_SERIES: Record<MarketCode, {
-  policy?: string; bond10y?: string; cpiIndex?: string; credit?: string; proxyNote?: string
+  policy?: string; bond10y?: string; cpiIndex?: string; credit?: string
+  /**
+   * FRED로 못 구하는 CPI를 DBnomics에서 받는다.
+   * `kind`가 'index'면 지수라 전년동월비를 직접 계산하고, 'percent'면 이미 전년동월비(%)다.
+   * 이 필드를 잘못 쓰면 3%가 300%가 되므로 반드시 명시한다.
+   */
+  cpiDbnomics?: { code: string; kind: 'index' | 'percent' }
+  proxyNote?: string
 }> = {
   US: { policy: 'DFEDTARU', bond10y: 'DGS10', credit: 'BAMLH0A0HYM2' },
   EU: {
@@ -171,19 +179,39 @@ const REGION_MACRO_SERIES: Record<MarketCode, {
   },
   JP: {
     policy: 'IRSTCI01JPM156N', bond10y: 'IRLTLT01JPM156N',
-    proxyNote: '정책금리는 단기금리 대리지표. CPI와 신용스프레드는 확보 실패 — '
-      + 'FRED의 일본 CPI 시리즈는 2021년 이후 갱신이 끊겼다',
+    // 일본 통계청(STATJP) 전국 종합 CPI 지수. FRED·OECD·IMF 미러가 전부 낡아서 여기로 왔다.
+    cpiDbnomics: { code: 'STATJP/CPIm/001', kind: 'index' },
+    proxyNote: '정책금리는 단기금리 대리지표. CPI는 일본 통계청(STATJP) 지수에서 전년동월비 계산. '
+      + '신용스프레드는 확보 실패',
   },
   KR: {
     policy: 'IR3TIB01KRM156N', bond10y: 'IRLTLT01KRM156N',
-    proxyNote: '정책금리는 3개월 은행간금리 대리지표. CPI와 신용스프레드는 확보 실패 — '
-      + 'FRED의 한국 CPI 시리즈는 2023년 이후 갱신이 끊겼다',
+    // OECD 신규 물가 데이터플로우. 이미 전년동월비(%)로 온다.
+    cpiDbnomics: { code: 'OECD/DSD_PRICES@DF_PRICES_ALL/KOR.M.N.CPI.PA._T.N.GY', kind: 'percent' },
+    proxyNote: '정책금리는 3개월 은행간금리 대리지표. CPI는 OECD 조화지표(전년동월비). '
+      + '신용스프레드는 확보 실패',
   },
   EM: {
     credit: 'BAMLEMCBPIOAS',
     proxyNote: 'EM은 단일 통화·금리 주체가 없어 정책금리를 수집하지 않는다. '
       + '신용스프레드는 EM 회사채 OAS(일간)로 리스크 국면만 본다',
   },
+}
+
+/**
+ * CPI 관측치를 `cpiYoY` 필드의 단위(**비율**)로 맞춘다.
+ *
+ * 소스마다 형태가 다르다 — 일본 통계청은 지수(113.6), OECD 한국은 이미 전년동월비 퍼센트(3.14).
+ * 이걸 헷갈리면 3%가 300%가 되고, 그 값이 그대로 매크로 판단에 들어간다.
+ * 그래서 변환을 한 곳에 모으고 테스트로 고정한다.
+ */
+export function cpiFromObs(
+  obs: { date: string; value: number | null }[],
+  kind: 'index' | 'percent',
+): { value: number | null; asOf: string | null } {
+  if (kind === 'index') return { value: yoy(obs), asOf: lastWithDate(obs).asOf }
+  const hit = lastWithDate(obs)
+  return { value: hit.value === null ? null : hit.value / 100, asOf: hit.asOf }
 }
 
 /** 마지막 유효 관측값과 그 날짜를 함께 돌려준다. 날짜 없이 값만 쓰면 지연을 못 본다. */
@@ -222,6 +250,12 @@ export async function collectRegionMacro(): Promise<Partial<Record<MarketCode, R
         cpi = { value: yoy(obs), asOf: lastWithDate(obs).asOf }
       } catch (e) {
         console.error(`지역 CPI ${code} 실패: ${(e as Error).message}`)
+      }
+    } else if (cfg.cpiDbnomics) {
+      try {
+        cpi = cpiFromObs(await fetchDbnomicsSeries(cfg.cpiDbnomics.code), cfg.cpiDbnomics.kind)
+      } catch (e) {
+        console.error(`지역 CPI ${code} (DBnomics) 실패: ${(e as Error).message}`)
       }
     }
 
