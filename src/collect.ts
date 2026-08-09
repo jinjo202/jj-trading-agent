@@ -160,22 +160,30 @@ function assetFeature(symbol: string, bars: Ohlcv[]): AssetFeature {
  * 유로존 10년물(IRLTLT01EZM156N)은 7개월 밀려 있어 독일 분트로 대체했다 — 유로존 벤치마크 금리다.
  */
 const REGION_MACRO_SERIES: Record<MarketCode, {
-  policy?: string; bond10y?: string; cpiIndex?: string; proxyNote?: string
+  policy?: string; bond10y?: string; cpiIndex?: string; credit?: string; proxyNote?: string
 }> = {
-  US: { policy: 'DFEDTARU', bond10y: 'DGS10' },
+  US: { policy: 'DFEDTARU', bond10y: 'DGS10', credit: 'BAMLH0A0HYM2' },
   EU: {
     policy: 'ECBDFR', bond10y: 'IRLTLT01DEM156N', cpiIndex: 'CP0000EZ19M086NEST',
-    proxyNote: '10년물은 독일 분트(유로존 벤치마크), CPI는 유로존 HICP 지수에서 전년동월비 계산',
+    credit: 'BAMLHE00EHYIOAS',
+    proxyNote: '10년물은 독일 분트(유로존 벤치마크), CPI는 유로존 HICP 지수에서 전년동월비 계산. '
+      + '신용스프레드는 유로 하이일드 OAS(일간)',
   },
   JP: {
     policy: 'IRSTCI01JPM156N', bond10y: 'IRLTLT01JPM156N',
-    proxyNote: '정책금리는 단기금리 대리지표. CPI는 FRED에서 확보 실패',
+    proxyNote: '정책금리는 단기금리 대리지표. CPI와 신용스프레드는 확보 실패 — '
+      + 'FRED의 일본 CPI 시리즈는 2021년 이후 갱신이 끊겼다',
   },
   KR: {
     policy: 'IR3TIB01KRM156N', bond10y: 'IRLTLT01KRM156N',
-    proxyNote: '정책금리는 3개월 은행간금리 대리지표. CPI는 FRED에서 확보 실패',
+    proxyNote: '정책금리는 3개월 은행간금리 대리지표. CPI와 신용스프레드는 확보 실패 — '
+      + 'FRED의 한국 CPI 시리즈는 2023년 이후 갱신이 끊겼다',
   },
-  EM: { proxyNote: 'EM은 단일 통화·금리 주체가 없어 지역 매크로를 수집하지 않는다' },
+  EM: {
+    credit: 'BAMLEMCBPIOAS',
+    proxyNote: 'EM은 단일 통화·금리 주체가 없어 정책금리를 수집하지 않는다. '
+      + '신용스프레드는 EM 회사채 OAS(일간)로 리스크 국면만 본다',
+  },
 }
 
 /** 마지막 유효 관측값과 그 날짜를 함께 돌려준다. 날짜 없이 값만 쓰면 지연을 못 본다. */
@@ -217,10 +225,31 @@ export async function collectRegionMacro(): Promise<Partial<Record<MarketCode, R
       }
     }
 
+    // 신용스프레드는 수준보다 방향이 신호다. 20거래일 변화를 함께 낸다.
+    let credit: { value: number | null; asOf: string | null; chg20d: number | null } =
+      { value: null, asOf: null, chg20d: null }
+    if (cfg.credit) {
+      try {
+        const obs = (await fetchFredSeries(cfg.credit, start)).filter((o) => o.value !== null)
+        const last = obs.at(-1)
+        const prev = obs.at(-21)
+        credit = {
+          value: last?.value ?? null,
+          asOf: last?.date ?? null,
+          chg20d: last?.value != null && prev?.value != null ? last.value - prev.value : null,
+        }
+      } catch (e) {
+        console.error(`지역 신용스프레드 ${code} 실패: ${(e as Error).message}`)
+      }
+    }
+
     out[code] = {
       policyRate: policy.value, policyRateAsOf: policy.asOf,
       bond10y: bond.value, bond10yAsOf: bond.asOf,
       cpiYoY: cpi.value, cpiYoYAsOf: cpi.asOf,
+      creditSpread: credit.value,
+      creditSpreadAsOf: credit.asOf,
+      creditSpread20dChg: credit.chg20d,
       proxyNote: cfg.proxyNote ?? null,
     }
   }

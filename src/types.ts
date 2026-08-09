@@ -69,6 +69,15 @@ export type RegionMacro = {
   bond10yAsOf: string | null
   cpiYoY: number | null
   cpiYoYAsOf: string | null
+  /**
+   * 지역 하이일드/회사채 옵션조정스프레드(%p)와 20거래일 변화.
+   * 금리·물가와 달리 **일간이고 당일에 가깝다** — 미국 외 매크로에서 유일하게 시차가 없는 값이라
+   * 정책금리의 두 달 지연을 메우는 자리다. 신용은 주식보다 먼저 움직인다.
+   * 확대(양수 변화)가 스트레스 신호다.
+   */
+  creditSpread: number | null
+  creditSpreadAsOf: string | null
+  creditSpread20dChg: number | null
   /** 대리지표를 쓴 경우 무엇으로 대체했는지. 없으면 null. */
   proxyNote: string | null
 }
