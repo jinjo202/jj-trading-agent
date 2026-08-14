@@ -181,15 +181,21 @@ const REGION_MACRO_SERIES: Record<MarketCode, {
     policy: 'IRSTCI01JPM156N', bond10y: 'IRLTLT01JPM156N',
     // 일본 통계청(STATJP) 전국 종합 CPI 지수. FRED·OECD·IMF 미러가 전부 낡아서 여기로 왔다.
     cpiDbnomics: { code: 'STATJP/CPIm/001', kind: 'index' },
+    // 일본 단독 신용스프레드는 FRED에 시리즈 자체가 없다(검색해도 무관한 EM 지수만 나온다).
+    // 일본은 선진국이라 "EM 회사채" 계열의 대리조차 성립하지 않는다 — 진짜로 없는 데이터다.
     proxyNote: '정책금리는 단기금리 대리지표. CPI는 일본 통계청(STATJP) 지수에서 전년동월비 계산. '
-      + '신용스프레드는 확보 실패',
+      + '신용스프레드는 무료 소스에서 확보 실패(유료 벤더 필요, iTraxx Japan 등)',
   },
   KR: {
     policy: 'IR3TIB01KRM156N', bond10y: 'IRLTLT01KRM156N',
     // OECD 신규 물가 데이터플로우. 이미 전년동월비(%)로 온다.
     cpiDbnomics: { code: 'OECD/DSD_PRICES@DF_PRICES_ALL/KOR.M.N.CPI.PA._T.N.GY', kind: 'percent' },
+    // 한국 단독 신용스프레드는 FRED에 없다. ICE BofA 아시아 EM 회사채 OAS로 대체한다 —
+    // 한국·중국·인도네시아 등이 섞인 지역 지수라 한국 고유 리스크가 아니라
+    // "아시아 신흥 신용 여건"을 보는 것이다. 그래도 없는 것보다는 방향 정보가 된다.
+    credit: 'BAMLEMRACRPIASIAOAS',
     proxyNote: '정책금리는 3개월 은행간금리 대리지표. CPI는 OECD 조화지표(전년동월비). '
-      + '신용스프레드는 확보 실패',
+      + '신용스프레드는 한국 단독이 아니라 ICE BofA 아시아 신흥국 회사채 OAS(지역 종합)',
   },
   EM: {
     credit: 'BAMLEMCBPIOAS',
