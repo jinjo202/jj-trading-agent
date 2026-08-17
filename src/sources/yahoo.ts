@@ -45,6 +45,19 @@ export async function fetchRegionValuation(symbol: string): Promise<RegionValuat
   }
 }
 
+/**
+ * ETF의 분배수익률(연율 비율). 채권·대체자산 배분에서 캐리의 크기다.
+ *
+ * **만기수익률(YTM)이 아니다.** Yahoo의 `summaryDetail.yield`는 최근 12개월 분배 기준이라
+ * (1) TIPS는 물가연동 원금상승분이 섞여 실질금리와 전혀 다르게 나오고
+ * (2) 가격이 급변한 뒤에는 현재 매수자가 받을 수익률과 벌어진다.
+ * 그래도 IG 4.66% 대 HY 5.94%처럼 **같은 채권끼리의 상대 비교**에는 쓸 수 있어서 싣는다.
+ */
+export async function fetchDistYield(symbol: string): Promise<number | null> {
+  const s = await yf.quoteSummary(symbol, { modules: ['summaryDetail'] })
+  return num(s.summaryDetail?.yield)
+}
+
 export async function fetchFundamentals(symbol: string): Promise<Fundamentals> {
   const s = await yf.quoteSummary(symbol, {
     modules: ['price', 'summaryProfile', 'defaultKeyStatistics', 'financialData'],

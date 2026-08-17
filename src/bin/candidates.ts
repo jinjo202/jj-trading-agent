@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises'
-import { readOpenReportRequests, readUniverse } from '../db.ts'
+import { readOpenReportRequests, readStandingTaa, readUniverse } from '../db.ts'
 import { fetchDaily, fetchFundamentals } from '../sources/yahoo.ts'
 import { fetchSymbolNews } from '../sources/news.ts'
 import {
@@ -110,10 +110,13 @@ try {
     }
   }
 
-  const bundle = buildBundleB(bundleA, agents, candidates, news, snapshots, requested)
+  // 직전 확정 TAA. 없으면(첫 달) null이고 CIO는 백지에서 시작한다.
+  const standingTaa = await readStandingTaa()
+  const bundle = buildBundleB(bundleA, agents, candidates, news, snapshots, requested, standingTaa)
   await writeFile(`runs/${date}/bundle-b.json`, JSON.stringify(bundle, null, 2))
   console.log(
-    `B단계 번들: runs/${date}/bundle-b.json (후보 ${candidates.length}, 요청 리포트 ${requested.length})`,
+    `B단계 번들: runs/${date}/bundle-b.json (후보 ${candidates.length}, 요청 리포트 ${requested.length}, ` +
+    `확정TAA ${standingTaa ? `${standingTaa.month}/${standingTaa.as_of}` : '없음'})`,
   )
 } catch (e) {
   console.error('후보 선정 실패:', (e as Error).message)

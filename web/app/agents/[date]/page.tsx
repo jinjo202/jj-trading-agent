@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
-import { getAgentReports, isPublished } from '@/lib/queries'
+import { getAgentReports, getChartData, getPriceHistory, isPublished } from '@/lib/queries'
+import { EvidenceChart } from '@/components/EvidenceChart'
 
 export const revalidate = 3600
 
@@ -15,7 +16,9 @@ export default async function AgentsPage({ params }: { params: Promise<{ date: s
     )
   }
 
-  const reports = await getAgentReports(date)
+  const [reports, priceHistory, chartData] = await Promise.all([
+    getAgentReports(date), getPriceHistory(), getChartData(),
+  ])
   if (reports.length === 0) notFound()
 
   return (
@@ -36,6 +39,7 @@ export default async function AgentsPage({ params }: { params: Promise<{ date: s
               <div key={i} className="text-xs text-neutral-500">
                 <span className="font-medium">{e.label}</span>: {e.value}{' '}
                 <span className="text-neutral-400">({e.source})</span>
+                <EvidenceChart source={e.source} value={e.value} priceHistory={priceHistory} chartData={chartData} />
               </div>
             ))}
           </div>

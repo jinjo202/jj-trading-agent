@@ -75,10 +75,23 @@ const goodVerdict = {
   regime: '확장 후반 — 신용 타이트, 디스인플레이션 둔화',
   horizon: '3-6개월 전술적',
   asset_allocation: {
-    equity: [60, 70], bond: [20, 30], cash: [5, 10],
+    equity: [55, 65], bond: [20, 28], cash: [3, 8], alt: [5, 12],
     rationale: '신용 스프레드가 타이트해 주식 비중을 중립 위로 둔다',
+    fixed_income: [
+      { sleeve: '미국 국채 중기', ticker: 'IEF', weight_pct: 60, rationale: '캐리와 변동성 균형' },
+      { sleeve: '미국 IG 회사채', ticker: 'LQD', weight_pct: 40, rationale: 'IG 스프레드가 타이트' },
+    ],
+    duration: { stance: 'neutral', rationale: '곡선 정상화 초기라 중립' },
+    alternatives: [
+      { sleeve: '금', ticker: 'GLD', weight_pct: 50, rationale: '실질금리 하락 국면' },
+      { sleeve: '글로벌 리츠', ticker: 'REET', weight_pct: 50, rationale: '주식 상관이 낮다' },
+    ],
   },
   dm_vs_em: { preference: 'DM', rationale: '달러 강세가 EM 수익률을 깎는다' },
+  fx_view: {
+    dxy: { direction: 'bullish', confidence: 'medium', rationale: 'rateDiffToUs2y가 확대되는 중이다' },
+    usdkrw: { direction: 'bullish', confidence: 'low', rationale: '원달러 상승(원화 약세) 압력' },
+  },
   markets: deskMarkets.map((code, i) => ({
     code,
     stance: i === 0 ? 'OW' : 'N',
@@ -141,6 +154,50 @@ test('5개 시장 중 하나라도 빠지면 거부', () => {
 test('자산배분 밴드 중앙값 합이 100에서 멀면 거부', () => {
   const bad = { ...goodVerdict.asset_allocation, equity: [10, 20] }
   assert.throws(() => validateDailyVerdict({ ...goodVerdict, asset_allocation: bad }), /asset_allocation/)
+})
+
+test('fx_view의 direction은 bullish/neutral/bearish 중 하나여야 한다', () => {
+  const bad = { ...goodVerdict.fx_view, dxy: { ...goodVerdict.fx_view!.dxy, direction: 'up' } }
+  assert.throws(() => validateDailyVerdict({ ...goodVerdict, fx_view: bad }), /direction/)
+})
+
+test('fx_view의 confidence는 low/medium/high 중 하나여야 한다', () => {
+  const bad = { ...goodVerdict.fx_view, usdkrw: { ...goodVerdict.fx_view!.usdkrw, confidence: 90 } }
+  assert.throws(() => validateDailyVerdict({ ...goodVerdict, fx_view: bad }), /confidence/)
+})
+
+test('fx_view가 없으면 거부한다(dm_vs_em과 같은 정책 — 타입은 optional이지만 검증기는 강제)', () => {
+  const { fx_view, ...withoutFx } = goodVerdict
+  assert.throws(() => validateDailyVerdict(withoutFx), /fx_view/)
+})
+
+// sleeve 비중은 그 sleeve 안에서의 배분이라 합이 100이다. 전체 포트폴리오 비중으로
+// 착각해 합 25 같은 값을 내면 배분표가 조용히 틀리므로 검증기가 막아야 한다.
+test('채권 sleeve 내부 비중 합이 100이 아니면 거부', () => {
+  const bad = {
+    ...goodVerdict.asset_allocation,
+    fixed_income: [
+      { sleeve: '미국 국채 중기', ticker: 'IEF', weight_pct: 15, rationale: '전체 대비 비중으로 착각' },
+      { sleeve: '미국 IG 회사채', ticker: 'LQD', weight_pct: 10, rationale: '합이 25다' },
+    ],
+  }
+  assert.throws(() => validateDailyVerdict({ ...goodVerdict, asset_allocation: bad }), /weight_pct 합이 100/)
+})
+
+test('대체자산 sleeve 내부 비중 합도 100을 강제한다', () => {
+  const bad = {
+    ...goodVerdict.asset_allocation,
+    alternatives: [{ sleeve: '금', ticker: 'GLD', weight_pct: 40, rationale: '혼자 40' }],
+  }
+  assert.throws(() => validateDailyVerdict({ ...goodVerdict, asset_allocation: bad }), /weight_pct 합이 100/)
+})
+
+test('듀레이션 스탠스는 short/neutral/long 중 하나여야 한다', () => {
+  const bad = {
+    ...goodVerdict.asset_allocation,
+    duration: { stance: 'longer', rationale: '오타' },
+  }
+  assert.throws(() => validateDailyVerdict({ ...goodVerdict, asset_allocation: bad }), /stance/)
 })
 
 test('데스크 출력은 5개 시장 코멘트를 전부 요구한다', () => {

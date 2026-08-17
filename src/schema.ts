@@ -1,5 +1,5 @@
 import { DESKS, MARKET_CODES } from './types.ts'
-import type { AgentOutput, CompanyReport, DailyVerdict, Desk, MarketCode } from './types.ts'
+import type { AgentOutput, CompanyReport, DailyVerdict, Desk, MarketCode, SleeveSplit } from './types.ts'
 
 class Path {
   // ponytail: 문자열 경로를 손으로 잇는다. 검증기 하나 쓰자고 zod를 넣지 않는다.
@@ -126,6 +126,68 @@ function band(v: unknown, p: Path): [number, number] {
   return [lo, hi]
 }
 
+/**
+ * sleeve 내부 배분. `weight_pct`는 그 sleeve 안에서의 비중이라 **합이 100이어야 한다**.
+ * 전체 포트폴리오 비중과 헷갈려 합이 20 같은 값으로 오면 배분표가 조용히 틀리므로 여기서 막는다.
+ */
+function sleeveSplits(v: unknown, p: Path): SleeveSplit[] {
+  const rows = arr(v, p, { min: 1 }).map((s, i) => {
+    const sp = p.child(i)
+    const so = obj(s, sp)
+    return {
+      sleeve: str(so.sleeve, sp.child('sleeve')),
+      ticker: str(so.ticker, sp.child('ticker')),
+      weight_pct: numIn(so.weight_pct, sp.child('weight_pct'), 0, 100),
+      rationale: str(so.rationale, sp.child('rationale')),
+    }
+  })
+  const total = rows.reduce((s, r) => s + r.weight_pct, 0)
+  if (Math.abs(total - 100) > 1) {
+    p.fail(`weight_pct 합이 100이어야 합니다 (받은 합: ${total.toFixed(1)}). 이 sleeve 안에서의 비중입니다`)
+  }
+  return rows
+}
+
+/**
+ * 월간 리포트에서 **모델이 채우는 부분만** 검증한다.
+ * 포지셔닝·구현표·from/to는 코드가 계산하므로 여기 오지 않는다.
+ *
+ * `expectedAreas`는 코드가 만든 변화 목록의 area다. 모델이 area를 바꾸거나
+ * 없던 변화를 추가하면 짝이 어긋나므로 여기서 막는다 —
+ * "지난달 대비 이렇게 바뀌었다"는 리포트에서 가장 조용히 틀리는 자리다.
+ */
+export function validateMonthlyNarrative(
+  v: unknown,
+  expectedAreas: string[],
+): { outlook: string; themes: { title: string; body: string }[]; changes: { area: string; reason: string }[]; key_risks: string[] } {
+  const p = new Path('MonthlyNarrative')
+  const o = obj(v, p)
+
+  const changes = arr(o.changes, p.child('changes')).map((c, i) => {
+    const cp = p.child('changes').child(i)
+    const co = obj(c, cp)
+    return { area: str(co.area, cp.child('area')), reason: str(co.reason, cp.child('reason')) }
+  })
+  const got = changes.map((c) => c.area).sort()
+  const want = [...expectedAreas].sort()
+  if (got.length !== want.length || got.some((a, i) => a !== want[i])) {
+    p.child('changes').fail(
+      `area 목록이 입력과 정확히 일치해야 합니다. 기대: ${JSON.stringify(want)} / 받음: ${JSON.stringify(got)}`,
+    )
+  }
+
+  return {
+    outlook: str(o.outlook, p.child('outlook')),
+    themes: arr(o.themes, p.child('themes'), { min: 1 }).map((t, i) => {
+      const tp = p.child('themes').child(i)
+      const to = obj(t, tp)
+      return { title: str(to.title, tp.child('title')), body: str(to.body, tp.child('body')) }
+    }),
+    changes,
+    key_risks: strArray(o.key_risks, p.child('key_risks'), { min: 1 }),
+  }
+}
+
 export function validateDailyVerdict(v: unknown): DailyVerdict {
   const p = new Path('DailyVerdict')
   const o = obj(v, p)
@@ -184,13 +246,27 @@ export function validateDailyVerdict(v: unknown): DailyVerdict {
       const equity = band(ao.equity, ap.child('equity'))
       const bond = band(ao.bond, ap.child('bond'))
       const cash = band(ao.cash, ap.child('cash'))
+      const alt = band(ao.alt, ap.child('alt'))
       // 밴드 중앙값의 합이 100 근처가 아니면 배분표로 쓸 수 없다.
       const mid = ([lo, hi]: [number, number]) => (lo + hi) / 2
-      const total = mid(equity) + mid(bond) + mid(cash)
+      const total = mid(equity) + mid(bond) + mid(cash) + mid(alt)
       if (Math.abs(total - 100) > 5) {
         ap.fail(`밴드 중앙값 합이 100에서 너무 멉니다 (${total.toFixed(1)})`)
       }
-      return { equity, bond, cash, rationale: str(ao.rationale, ap.child('rationale')) }
+      return {
+        equity, bond, cash, alt,
+        rationale: str(ao.rationale, ap.child('rationale')),
+        fixed_income: sleeveSplits(ao.fixed_income, ap.child('fixed_income')),
+        duration: (() => {
+          const dp = ap.child('duration')
+          const dobj = obj(ao.duration, dp)
+          return {
+            stance: oneOf(dobj.stance, dp.child('stance'), ['short', 'neutral', 'long'] as const),
+            rationale: str(dobj.rationale, dp.child('rationale')),
+          }
+        })(),
+        alternatives: sleeveSplits(ao.alternatives, ap.child('alternatives')),
+      }
     })(),
     dm_vs_em: (() => {
       const dp = p.child('dm_vs_em')
@@ -199,6 +275,20 @@ export function validateDailyVerdict(v: unknown): DailyVerdict {
         preference: oneOf(dobj.preference, dp.child('preference'), ['DM', 'EM', 'neutral'] as const),
         rationale: str(dobj.rationale, dp.child('rationale')),
       }
+    })(),
+    fx_view: (() => {
+      const fp = p.child('fx_view')
+      const fobj = obj(o.fx_view, fp)
+      const leg = (key: 'dxy' | 'usdkrw') => {
+        const lp = fp.child(key)
+        const lo = obj(fobj[key], lp)
+        return {
+          direction: oneOf(lo.direction, lp.child('direction'), STANCE_3),
+          confidence: oneOf(lo.confidence, lp.child('confidence'), ['low', 'medium', 'high'] as const),
+          rationale: str(lo.rationale, lp.child('rationale')),
+        }
+      }
+      return { dxy: leg('dxy'), usdkrw: leg('usdkrw') }
     })(),
     markets: (() => {
       const mp = p.child('markets')

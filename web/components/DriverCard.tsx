@@ -1,5 +1,8 @@
 import { scoreGaugeColor } from '@/lib/format'
+import { RichText } from '@/components/RichText'
+import { EvidenceChart } from '@/components/EvidenceChart'
 import type { AgentOutput, DailyVerdict } from '@/lib/types'
+import type { ChartData } from '@/lib/queries'
 
 /**
  * 0-100 점수를 눈금 있는 막대로 보여준다. 50이 중립이라는 것이 이 지표의 핵심이므로
@@ -43,9 +46,13 @@ function ConfidenceBar({ confidence }: { confidence: number }) {
 export function DriverCard({
   driver,
   output,
+  priceHistory,
+  chartData,
 }: {
   driver: DailyVerdict['drivers'][number]
   output?: AgentOutput
+  priceHistory: Record<string, { date: string; close: number }[]>
+  chartData: ChartData
 }) {
   const sign = driver.direction === '+' ? 'text-emerald-600' : 'text-rose-600'
 
@@ -55,7 +62,7 @@ export function DriverCard({
         <span>{driver.agent}</span>
         <span className={sign}>{driver.direction} ({(driver.weight * 100).toFixed(0)}%)</span>
       </div>
-      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{driver.point}</p>
+      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400"><RichText text={driver.point} /></p>
     </>
   )
 
@@ -74,7 +81,7 @@ export function DriverCard({
       </summary>
 
       <div className="flex flex-col gap-4 border-t border-neutral-200 p-3 dark:border-neutral-800">
-        <p className="text-sm font-medium">{output.headline}</p>
+        <p className="text-sm font-medium"><RichText text={output.headline} /></p>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
@@ -95,16 +102,19 @@ export function DriverCard({
           </div>
         </div>
 
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">{output.reasoning}</p>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400"><RichText text={output.reasoning} /></p>
 
         <div>
           <h3 className="mb-1 text-xs font-medium text-neutral-500">근거 데이터</h3>
           <div className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
             {output.evidence.map((e, i) => (
-              <div key={i} className="flex flex-wrap items-baseline justify-between gap-x-2 py-1.5">
-                <span className="text-sm">{e.label}</span>
-                <span className="text-sm font-medium">{e.value}</span>
-                <code className="w-full text-[10px] text-neutral-400">{e.source}</code>
+              <div key={i} className="py-1.5">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                  <span className="text-sm">{e.label}</span>
+                  <span className="text-sm font-medium">{e.value}</span>
+                  <code className="w-full text-[10px] text-neutral-400">{e.source}</code>
+                </div>
+                <EvidenceChart source={e.source} value={e.value} priceHistory={priceHistory} chartData={chartData} />
               </div>
             ))}
           </div>

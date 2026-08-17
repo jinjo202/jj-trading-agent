@@ -21,7 +21,7 @@ export type Fundamentals = {
   operatingMargin: number | null
 }
 
-export type SnapshotKind = 'prices' | 'macro' | 'features'
+export type SnapshotKind = 'prices' | 'macro' | 'features' | 'holdings'
 
 /** 커버하는 5개 시장. 배분 판단의 단위다. */
 export type MarketCode = 'US' | 'KR' | 'JP' | 'EU' | 'EM'
@@ -78,6 +78,13 @@ export type RegionMacro = {
   creditSpread: number | null
   creditSpreadAsOf: string | null
   creditSpread20dChg: number | null
+  /**
+   * 미국 2년물 − 이 시장 정책금리(%p). 양수면 미국이 높다.
+   * FX 방향(특히 캐리)의 핵심 축을 코드가 미리 계산해 둔다 — LLM이 번들 여기저기 흩어진
+   * 두 숫자를 직접 빼게 하면 부호를 틀리는 사고가 난다(이 코드베이스가 이미 여러 번 겪음).
+   * `policyRateAsOf`와 같은 지연을 그대로 물려받는다(미국 외는 1-2개월 늦다).
+   */
+  rateDiffToUs2y: number | null
   /** 대리지표를 쓴 경우 무엇으로 대체했는지. 없으면 null. */
   proxyNote: string | null
 }
@@ -126,6 +133,109 @@ export type MacroBlock = {
   coreCpiYoY: number | null
   unrate: number | null
   hySpread: number | null
+  /**
+   * 미국 IG 회사채 OAS(%p). hySpread와 짝을 이룬다 —
+   * 둘의 격차가 신용 사이클에서 IG와 HY 중 무엇을 살지 가르는 값이다.
+   */
+  igSpread: number | null
+  /**
+   * 10년 TIPS 실질금리(%, FRED DFII10). 금과 장기채의 공통 할인율이며
+   * 명목금리만 보면 놓치는 값이다 — 명목이 올라도 기대인플레가 더 오르면 실질은 내린다.
+   */
+  realYield10y: number | null
+  /** 10년 기대인플레(%, FRED T10YIE). 명목 = 실질 + 기대인플레 */
+  breakeven10y: number | null
+}
+
+/**
+ * 매크로 지표의 시계열. 키는 `MacroBlock`의 필드명과 같다 —
+ * 화면이 `features.macro.realYield10y` 같은 근거 경로에서 곧바로 찾아 쓸 수 있게 맞춘 것이다.
+ *
+ * 스칼라만 저장하면 "실질금리 2.39%"가 높은지 낮은지 화면에서 알 방법이 없다.
+ * 값 하나로는 수준을 판단할 수 없어서 추이를 함께 싣는다.
+ */
+export type MacroSeries = Record<string, { date: string; value: number }[]>
+
+/** 섹터 ETF 상위 보유종목 하나. 섹터를 눌렀을 때 화면에 펼쳐지는 내용이다. */
+export type SectorHolding = {
+  ticker: string
+  name: string
+  /** ETF 내 비중(%) */
+  weightPct: number | null
+  currency: string | null
+  /** 현지통화 시가총액 */
+  marketCap: number | null
+  /** 원화환산 시가총액. 환율을 못 구했으면 null이다 */
+  marketCapKrw: number | null
+  /** 12개월 선행 PER */
+  forwardPe: number | null
+  /** 연간 3개년. 오래된 것부터 */
+  annual: { period: string; revenue: number | null; operatingIncome: number | null }[]
+  /** 최근 분기들(오래된 것부터). 전년 동기 비교를 위해 6분기를 담는다 */
+  quarterly: { period: string; revenue: number | null; operatingIncome: number | null }[]
+  /**
+   * `operatingIncome` 자리에 실제로 무엇이 들어 있는지.
+   * **은행은 영업이익을 보고하지 않아** 세전이익으로 대체한다(JPM·KB 모두 null 확인).
+   * 라벨 없이 섞으면 다른 지표를 같은 이름으로 비교하게 되므로 반드시 화면에 표기한다.
+   */
+  incomeBasis: 'operatingIncome' | 'pretaxIncome' | null
+}
+
+export type SectorHoldings = {
+  etf: string
+  asOf: string
+  holdings: SectorHolding[]
+  /** 데이터 출처·한계 안내. 없으면 null */
+  note: string | null
+}
+
+/** 채권·대체자산 sleeve. 자산군 안에서 무엇을 살지 고르는 단위다. */
+export type SleeveGroup = 'bond' | 'alt'
+
+/**
+ * sleeve 후보 하나. **전부 USD 표시 ETF다** — 지역 ETF와 같은 이유로,
+ * 현지통화 상품을 섞으면 "달러로 벌었나"라는 실제 질문에 답하지 못한다.
+ */
+export type SleeveAsset = {
+  ticker: string
+  group: SleeveGroup
+  /** bond: sovereign/credit/em/inflation · alt: precious/industrial/private/real */
+  bucket: string
+  label: string
+  /**
+   * 분배수익률(연율 비율). **만기수익률(YTM)이 아니라 최근 12개월 분배 기준이다.**
+   * TIPS(TIP)는 물가연동 원금상승분이 분배에 섞여 실질금리와 전혀 다른 숫자가 나온다 —
+   * 실질금리는 `macro.realYield10y`를 봐야 한다.
+   */
+  distYield: number | null
+  ret1m: number | null
+  ret3m: number | null
+  /** bond는 AGG 대비 3개월 초과수익. alt는 벤치마크가 없어 null이다. */
+  rel3m: number | null
+  realizedVol20: number | null
+  /**
+   * SPY와의 60일 로그수익률 상관. 분산 기여의 유일한 실측 근거다 —
+   * "대체자산이니 분산된다"는 통념 대신 이 숫자로 판단한다.
+   */
+  corrToEquity60d: number | null
+  distSma200: number | null
+}
+
+/**
+ * 듀레이션 포지셔닝의 실측 근거. 국채 사다리(1-3y / 7-10y / 20y+)를 나란히 둔다.
+ * 곡선(`macro.curve2s10s`)이 "지금 어떤 모양인가"라면 이건 "그래서 어느 만기를 살까"다.
+ */
+export type DurationRead = {
+  /** 사다리별 분배수익률(연율 비율). 캐리의 크기다. */
+  shortYield: number | null
+  intermediateYield: number | null
+  longYield: number | null
+  /** TLT − SHY 3개월 수익률(비율). 양수면 장기물이 이기고 있는 국면 */
+  longMinusShort3m: number | null
+  /** TLT 20일 실현변동성. 장기물은 같은 방향이어도 변동성이 몇 배다 */
+  longVol20: number | null
+  /** SHY 20일 실현변동성 */
+  shortVol20: number | null
 }
 
 export type AssetFeature = {
@@ -166,7 +276,7 @@ export type FeatureSet = {
     regions: RegionRelative[]     // 5개 시장의 USD 기준 상대성과
     emVsDmExUs3m: number | null   // EEM - EFA. EFA는 미국·캐나다 제외 선진국이다
     emVsAcwi3m: number | null     // EEM - ACWI
-    sectors: { etf: string; rel3m: number | null }[]  // 각 섹터 ETF 3개월 수익률 - SPY
+    sectors: { etf: string; region: MarketCode; rel3m: number | null }[]  // 섹터 ETF 3개월 수익률 - 자기 지역 벤치마크
   }
   /** 시장별 밸류에이션. 지역 배분에서 "싼가 비싼가"의 유일한 실측 근거다. */
   valuation: Partial<Record<MarketCode, RegionValuationRanked>>
@@ -176,6 +286,10 @@ export type FeatureSet = {
   regionCorr: RegionCorr[]
   /** 섹터 ETF 밸류에이션(키는 ETF 티커). 섹터 판단이 모멘텀 단독이 되지 않게 한다. */
   sectorValuation: Partial<Record<string, RegionValuation>>
+  /** 채권·대체자산 후보. 주식 밖의 배분을 숫자로 판단하게 하는 근거다. */
+  sleeves: SleeveAsset[]
+  /** 듀레이션 사다리. 채권 배분에서 "만기를 얼마나 길게" 답을 낸다. */
+  duration: DurationRead
   foreignRatioSamsung: number | null
   missing: string[]               // 수집 실패한 심볼/시리즈. 다운스트림 agent가 flag로 쓴다
 }
@@ -244,6 +358,16 @@ export type AgentOutput = {
   markets?: MarketRead[]
 }
 
+/** sleeve 내부 배분 한 줄. `weight_pct`는 그 sleeve 안에서의 비중이다(합 100). */
+export type SleeveSplit = {
+  /** 사람이 읽는 이름. 예: "미국 국채 중기", "금" */
+  sleeve: string
+  /** 실제 티커. 실행 가능해야 하므로 반드시 features.sleeves에 있는 것이어야 한다. */
+  ticker: string
+  weight_pct: number
+  rationale: string
+}
+
 export type DailyVerdict = {
   date: string
   equity_score: number
@@ -271,10 +395,31 @@ export type DailyVerdict = {
     equity: [number, number]
     bond: [number, number]
     cash: [number, number]
+    /** 대체자산 밴드. 2026-08 확장에서 추가돼 그 이전 행에는 없다. */
+    alt?: [number, number]
     rationale: string
+    /**
+     * 채권 sleeve **내부** 배분(%). 합이 100이다 —
+     * 전체 포트폴리오가 아니라 `bond` 밴드 안을 어떻게 쪼갤지를 말한다.
+     */
+    fixed_income?: SleeveSplit[]
+    /** 듀레이션 스탠스. 채권 배분에서 만기 축을 따로 답한다. */
+    duration?: { stance: 'short' | 'neutral' | 'long'; rationale: string }
+    /** 대체자산 sleeve **내부** 배분(%). 합이 100이다. */
+    alternatives?: SleeveSplit[]
   }
   /** 선진국 대 신흥국 선호 */
   dm_vs_em?: { preference: 'DM' | 'EM' | 'neutral'; rationale: string }
+  /**
+   * 달러·원달러 방향. 이미 `dm_vs_em`·GLD·EMLC 비중 근거로 흩어져 쓰이던 달러 판단을
+   * 하나의 감사 가능한 필드로 모은 것이다 — 가격 목표는 내지 않는다(정성적 방향뿐).
+   * `direction`은 `MarketRead.stance`와 같은 어휘(bullish/neutral/bearish)를 재사용한다.
+   * `usdkrw`의 bullish는 "원달러 상승(원화 약세)"를 뜻한다 — 화면 라벨에서 번역한다.
+   */
+  fx_view?: {
+    dxy: { direction: 'bullish' | 'neutral' | 'bearish'; confidence: 'low' | 'medium' | 'high'; rationale: string }
+    usdkrw: { direction: 'bullish' | 'neutral' | 'bearish'; confidence: 'low' | 'medium' | 'high'; rationale: string }
+  }
   /** 시장별 하우스뷰. weight_pct의 합은 100(주식 슬리브 내 배분)이어야 한다. */
   markets?: {
     code: MarketCode
@@ -300,6 +445,76 @@ export type DailyVerdict = {
     risk: string
   }[]
   invalidation: string[]
+  disclaimer: string
+}
+
+/** 포지셔닝 표 한 줄. 스탠스와 전월 대비 이동은 전부 코드가 계산한다. */
+export type PositioningRow = {
+  /** '자산군' | '주식 · 지역' | '채권' | '대체자산' */
+  group: string
+  name: string
+  stance: 'OW' | 'N' | 'UW'
+  weight_pct: number
+  /** 비교할 전월 값이 없으면 null */
+  prev_weight_pct: number | null
+  /** 전월 대비 스탠스 이동. 'new'는 지난달에 없던 항목 */
+  change: 'up' | 'down' | 'same' | 'new'
+  rationale: string
+}
+
+/** Neutral / Tactical / Relative 표 한 줄. relative = tactical − neutral */
+export type ImplementationRow = {
+  name: string
+  ticker: string
+  neutral_pct: number
+  tactical_pct: number
+  relative_pct: number
+}
+
+/**
+ * 전월 대비 변화 한 건. `from`/`to`/`area`는 코드가 계산하고
+ * `reason`만 모델이 채운다 — 그래야 없는 변화를 지어내지 못한다.
+ */
+export type MonthlyChange = {
+  area: string
+  from: string
+  to: string
+  reason: string
+  /**
+   * 눈에 띄게 표시할 만큼 큰 변화인가. 문턱은 `src/saa.ts`의 MATERIAL이며
+   * 일간 잡음 실측치를 근거로 정했다 — 스탠스 전환만으로는 material이 아니다.
+   */
+  material: boolean
+}
+
+/**
+ * 월간 리포트. 일간 판단(DailyVerdict)이 "오늘 무엇을 할까"라면
+ * 이건 "이번 달 우리 뷰는 무엇이고 지난달과 어디가 달라졌나"다.
+ */
+export type MonthlyReport = {
+  /** 'YYYY-MM' */
+  month: string
+  generated_at: string
+  /** 이 달의 기준이 된 일간 판단 날짜 */
+  as_of: string
+  /** 비교 대상 판단 날짜. 비교할 것이 아무것도 없으면 null */
+  prev_as_of: string | null
+  /**
+   * 무엇과 비교했는지. 첫 리포트는 전월이 없어 그 달 첫 판단과 비교하는데,
+   * 그걸 "전월 대비"로 표시하면 거짓말이 되므로 화면이 구분해 쓸 수 있게 남긴다.
+   */
+  prev_basis: 'previous-month' | 'month-start' | null
+  outlook: string
+  /** 이 달의 포지셔닝을 이끈 테마. 이름을 붙여 3개 내외 */
+  themes: { title: string; body: string }[]
+  positioning: PositioningRow[]
+  changes: MonthlyChange[]
+  implementation: {
+    sleeve: 'equity' | 'bond' | 'alt'
+    label: string
+    rows: ImplementationRow[]
+  }[]
+  key_risks: string[]
   disclaimer: string
 }
 
@@ -340,10 +555,31 @@ export type BundleA = {
   disclaimer: string
 }
 
+/**
+ * 직전에 **확정된** 전술 배분. 월간 리포트가 결정한 것이고, 일간 CIO는 이것을
+ * 출발점으로 삼는다.
+ *
+ * 왜 필요한가: 이게 없으면 CIO가 매일 백지에서 다시 정한다. 실측에서
+ * 시장 스탠스의 52%가 하루 만에 뒤집혔는데 신호와 점수는 그대로였다 —
+ * 바뀐 것은 시장이 아니라 모델의 표현이었다.
+ */
+export type StandingTaa = {
+  /** 이 배분을 확정한 월간 리포트 */
+  month: string
+  /** 그 리포트가 기준으로 삼은 일간 판단 날짜 */
+  as_of: string
+  asset_allocation: DailyVerdict['asset_allocation']
+  markets: { code: MarketCode; stance: 'OW' | 'N' | 'UW'; weight_pct: number }[]
+  /** 확정 당시의 무효화 조건. 오늘 이게 깨졌는지가 배분을 바꿀 정당한 사유다. */
+  invalidation: string[]
+}
+
 export type BundleB = {
   date: string
   features: FeatureSet
   agents_a: AgentOutput[]
+  /** 직전 확정 TAA. 아직 월간 리포트가 없으면 null이다. */
+  standing_taa: StandingTaa | null
   candidates: Candidate[]
   candidate_news: Record<string, NewsItem[]>
   company_snapshots: Record<string, CompanyReport['snapshot']>

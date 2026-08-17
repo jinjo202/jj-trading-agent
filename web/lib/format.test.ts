@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import {
   companyStanceLabel,
   equityWeightLabel,
+  extractChartSymbol,
+  holdingAmountLabel,
   marketCapLabel,
   numLabel,
   pctLabel,
@@ -110,4 +112,59 @@ test('companyStanceLabel은 세 스탠스를 각각 다른 문구/색으로 매�
   assert.equal(companyStanceLabel('neutral').text, '중립')
   assert.equal(companyStanceLabel('cautious').text, '신중')
   assert.notEqual(companyStanceLabel('positive').className, companyStanceLabel('cautious').className)
+})
+
+test('extractChartSymbol은 대괄호 표기의 티커를 뽑는다(점이 섞인 티커 포함)', () => {
+  assert.equal(extractChartSymbol("features.assets['SPY'].rsi14"), 'SPY')
+  assert.equal(extractChartSymbol("features.assets[\"DX-Y.NYB\"].mom12_1"), 'DX-Y.NYB')
+  assert.equal(extractChartSymbol("features.sectorValuation['XLV'].psr"), 'XLV')
+})
+
+test('extractChartSymbol은 점 표기의 단순 티커를 뽑는다', () => {
+  assert.equal(extractChartSymbol('features.assets.VGK.macdHist'), 'VGK')
+  assert.equal(extractChartSymbol('features.sectorValuation.XLK.per'), 'XLK')
+})
+
+// 티커 자체에 점이 있으면(EXV1.DE, 091160.KS) 첫 조각만 자르면 EXV1이 되어 못 찾는다.
+// 알려진 심볼 목록을 주면 가장 긴 것으로 맞춰야 한다.
+test('extractChartSymbol은 점이 들어간 티커를 알려진 목록으로 복원한다', () => {
+  const known = ['EXV1.DE', 'XLK', '091160.KS']
+  assert.equal(extractChartSymbol('features.sectorValuation.EXV1.DE.per', known), 'EXV1.DE')
+  assert.equal(extractChartSymbol('features.assets.091160.KS.distSma200', known), '091160.KS')
+  assert.equal(extractChartSymbol('features.sectorValuation.XLK.per', known), 'XLK')
+})
+
+test('알려진 목록에 없으면 점 없는 단순 티커로 가정한다', () => {
+  assert.equal(extractChartSymbol('features.assets.SPY.rsi14', ['SPY']), 'SPY')
+  assert.equal(extractChartSymbol('features.assets.UNKNOWN.foo', ['SPY']), 'UNKNOWN')
+})
+
+test('extractChartSymbol은 지역 코드를 그 지역 대표 ETF로 바꾼다', () => {
+  assert.equal(extractChartSymbol('features.valuation.US.per'), 'SPY')
+  assert.equal(extractChartSymbol('features.regionMacro.EU.creditSpread20dChg'), 'VGK')
+})
+
+test('extractChartSymbol은 regions[N] 인덱스를 MARKET_CODES 순서로 매핑한다', () => {
+  assert.equal(extractChartSymbol('features.relative.regions[0].rel3m'), 'SPY') // US
+  assert.equal(extractChartSymbol('features.relative.regions[3].rel3m'), 'VGK') // EU
+})
+
+test('holdingAmountLabel은 GBp를 GBP로 표기만 바꾸고 100으로 나누지 않는다', () => {
+  // 저장된 값 자체가 이미 파운드 단위다(서버에서 확인된 Yahoo 관행) — 여기서 또 나누면
+  // 서버의 GBp 보정과 중복돼 다시 100분의 1이 된다.
+  assert.equal(holdingAmountLabel(261_923_749_888, 'GBp'), '£261.9B')
+})
+
+test('holdingAmountLabel은 통화별 기호를 붙이고 KRW는 조/억 압축을 그대로 쓴다', () => {
+  assert.equal(holdingAmountLabel(59_200_000_000_000, 'KRW'), '59.2조')
+  assert.equal(holdingAmountLabel(1_366_200_000_000, 'USD'), '$1.37T')
+  assert.equal(holdingAmountLabel(301_200_000_000, 'EUR'), '€301.2B')
+  assert.equal(holdingAmountLabel(null, 'USD'), '-')
+  assert.equal(holdingAmountLabel(100, null), '-')
+})
+
+test('extractChartSymbol은 단일 자산으로 설명 안 되는 근거는 null을 낸다', () => {
+  assert.equal(extractChartSymbol('features.macro.curve2s10s'), null)
+  assert.equal(extractChartSymbol('features.regionCorr[2].corr60d'), null)
+  assert.equal(extractChartSymbol('features.regime.breadth'), null)
 })

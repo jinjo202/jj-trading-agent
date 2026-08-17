@@ -1,5 +1,6 @@
 import type {
   AgentOutput, BundleA, BundleB, Candidate, CompanyReport, FeatureSet, MarketCode, NewsItem,
+  StandingTaa,
 } from './types.ts'
 import { SECTOR_BY_ETF } from './universe.ts'
 
@@ -56,11 +57,13 @@ export function buildBundleB(
   news: Record<string, NewsItem[]>,
   snapshots: Record<string, CompanyReport['snapshot']>,
   requested: { ticker: string; market: 'KR' | 'US' }[],
+  standingTaa: StandingTaa | null = null,
 ): BundleB {
   return {
     date: bundleA.date,
     features: bundleA.features,
     agents_a: agents,
+    standing_taa: standingTaa,
     candidates,
     candidate_news: news,
     company_snapshots: snapshots,

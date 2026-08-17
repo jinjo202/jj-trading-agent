@@ -1,4 +1,5 @@
 import { MARKET_NAMES } from '@/lib/types'
+import { RichText } from '@/components/RichText'
 import type { DailyVerdict } from '@/lib/types'
 
 type Trade = NonNullable<DailyVerdict['trades']>[number]
@@ -24,7 +25,7 @@ export function TradeList({ trades }: { trades: Trade[] }) {
             <span className="text-xs text-neutral-400">
               {t.market === 'GLOBAL' ? '글로벌' : MARKET_NAMES[t.market]}
             </span>
-            <p className="w-full text-sm text-neutral-600 dark:text-neutral-400">{t.rationale}</p>
+            <p className="w-full text-sm text-neutral-600 dark:text-neutral-400"><RichText text={t.rationale} /></p>
           </div>
         )
       })}

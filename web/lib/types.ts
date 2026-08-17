@@ -33,6 +33,14 @@ export type AgentOutput = {
   markets?: MarketRead[]
 }
 
+/** sleeve 내부 배분 한 줄. weight_pct는 그 sleeve 안에서의 비중이다(합 100). */
+export type SleeveSplit = {
+  sleeve: string
+  ticker: string
+  weight_pct: number
+  rationale: string
+}
+
 export type DailyVerdict = {
   date: string
   equity_score: number
@@ -54,9 +62,21 @@ export type DailyVerdict = {
     equity: [number, number]
     bond: [number, number]
     cash: [number, number]
+    /** 대체자산 밴드. 2026-08 확장 이전 행에는 없다. */
+    alt?: [number, number]
     rationale: string
+    /** 채권 밴드 안에서의 배분(합 100) */
+    fixed_income?: SleeveSplit[]
+    duration?: { stance: 'short' | 'neutral' | 'long'; rationale: string }
+    /** 대체자산 밴드 안에서의 배분(합 100) */
+    alternatives?: SleeveSplit[]
   }
   dm_vs_em?: { preference: 'DM' | 'EM' | 'neutral'; rationale: string }
+  /** 달러·원달러 방향. usdkrw의 bullish는 원달러 상승(원화 약세)을 뜻한다 — 화면에서 번역한다. */
+  fx_view?: {
+    dxy: { direction: 'bullish' | 'neutral' | 'bearish'; confidence: 'low' | 'medium' | 'high'; rationale: string }
+    usdkrw: { direction: 'bullish' | 'neutral' | 'bearish'; confidence: 'low' | 'medium' | 'high'; rationale: string }
+  }
   markets?: {
     code: MarketCode
     stance: 'OW' | 'N' | 'UW'
@@ -81,6 +101,67 @@ export type DailyVerdict = {
   }[]
   invalidation: string[]
   disclaimer: string
+}
+
+export type PositioningRow = {
+  group: string
+  name: string
+  stance: 'OW' | 'N' | 'UW'
+  weight_pct: number
+  prev_weight_pct: number | null
+  change: 'up' | 'down' | 'same' | 'new'
+  rationale: string
+}
+
+export type ImplementationRow = {
+  name: string
+  ticker: string
+  neutral_pct: number
+  tactical_pct: number
+  relative_pct: number
+}
+
+export type MonthlyChange = {
+  area: string; from: string; to: string; reason: string
+  /** 크게 변한 것인가. 문턱은 서버의 src/saa.ts MATERIAL. 과거 행에는 없다. */
+  material?: boolean
+}
+
+export type MonthlyReport = {
+  month: string
+  generated_at: string
+  as_of: string
+  prev_as_of: string | null
+  /** 무엇과 비교했는지. 'month-start'는 전월이 없어 그 달 첫 판단과 비교했다는 뜻이다. */
+  prev_basis: 'previous-month' | 'month-start' | null
+  outlook: string
+  themes: { title: string; body: string }[]
+  positioning: PositioningRow[]
+  changes: MonthlyChange[]
+  implementation: { sleeve: 'equity' | 'bond' | 'alt'; label: string; rows: ImplementationRow[] }[]
+  key_risks: string[]
+  disclaimer: string
+}
+
+export type SectorHolding = {
+  ticker: string
+  name: string
+  weightPct: number | null
+  currency: string | null
+  marketCap: number | null
+  marketCapKrw: number | null
+  forwardPe: number | null
+  annual: { period: string; revenue: number | null; operatingIncome: number | null }[]
+  quarterly: { period: string; revenue: number | null; operatingIncome: number | null }[]
+  /** operatingIncome 자리에 실제로 무엇이 들어 있는지. 은행은 세전이익으로 대체된다. */
+  incomeBasis: 'operatingIncome' | 'pretaxIncome' | null
+}
+
+export type SectorHoldings = {
+  etf: string
+  asOf: string
+  holdings: SectorHolding[]
+  note: string | null
 }
 
 export type CompanyReport = {

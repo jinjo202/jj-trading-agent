@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import { askValidated } from '../llm.ts'
-import { kstDate, setPublished } from '../db.ts'
+import { collectSectorHoldings } from '../sources/holdings.ts'
+import { kstDate, setPublished, upsertSnapshots } from '../db.ts'
 import { validateAgentOutput, validateCompanyReport, validateDailyVerdict, validateDeskOutput } from '../schema.ts'
 import { DESKS } from '../types.ts'
 import type { AgentOutput, BundleA, BundleB, CompanyReport, Desk, MarketCode } from '../types.ts'
@@ -132,7 +133,22 @@ try {
     JSON.stringify({ agents: [counter], verdict, company_reports: reports }, null, 2),
   )
 
-  // 7. 발행. published=false로 저장되므로 사람이 확인 후 공개한다.
+  // 7. 섹터 보유종목. **CIO가 스탠스를 낸 섹터만** 받는다 —
+  // 전 섹터(31개)를 매일 긁으면 종목당 3회 호출로 600회가 넘어 rate limit 위험이 크다.
+  // 수집 단계가 아니라 여기 있는 이유: 어느 섹터가 필요한지는 CIO가 정해야 알 수 있다.
+  const sectorEtfs = [...new Set((verdict.sectors ?? []).map((s) => s.etf).filter(Boolean))]
+  if (sectorEtfs.length > 0) {
+    console.log(`섹터 보유종목 수집 (${sectorEtfs.length}개: ${sectorEtfs.join(', ')})...`)
+    try {
+      const holdings = await collectSectorHoldings(sectorEtfs)
+      await upsertSnapshots([{ kind: 'holdings', date, payload: holdings }])
+    } catch (e) {
+      // 보유종목은 부가 정보다. 실패해도 하우스뷰 발행은 막지 않는다.
+      console.error(`섹터 보유종목 수집 실패: ${(e as Error).message}`)
+    }
+  }
+
+  // 8. 발행. published=false로 저장되므로 사람이 확인 후 공개한다.
   await sh(['run', 'publish:run', '--', date])
 
   if (autoPublish) {

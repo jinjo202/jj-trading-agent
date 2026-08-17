@@ -2,15 +2,15 @@ import {
   atr, correlation, distFromSma, logReturns, macd, momentum12_1, pctChange,
   pctRank, realizedVol, rsi, week52Position,
 } from './indicators.ts'
-import { fetchDaily, fetchRegionValuation } from './sources/yahoo.ts'
+import { fetchDaily, fetchDistYield, fetchRegionValuation } from './sources/yahoo.ts'
 import { fetchForeignRatio, fetchNaverDaily } from './sources/naver.ts'
 import { fetchFredSeries, hasFredKey } from './sources/fred.ts'
 import { fetchDbnomicsSeries } from './sources/dbnomics.ts'
 import { kstDate, readValuationHistory, upsertSnapshots } from './db.ts'
 import { MARKET_CODES } from './types.ts'
 import type {
-  AssetFeature, FeatureSet, MacroBlock, MarketCode, Ohlcv,
-  RegionCorr, RegionMacro, RegionRelative, RegionValuation, RegionValuationRanked,
+  AssetFeature, DurationRead, FeatureSet, MacroBlock, MacroSeries, MarketCode, Ohlcv,
+  RegionCorr, RegionMacro, RegionRelative, RegionValuation, RegionValuationRanked, SleeveAsset,
 } from './types.ts'
 
 export const SYMBOLS: Record<string, string> = {
@@ -48,10 +48,97 @@ export const REGION_ETFS: Record<MarketCode, string> = {
 /** 지역 상대성과의 기준 지수. */
 export const REGION_BENCHMARK = 'ACWI'
 
-export const SECTOR_ETFS: Record<string, string> = {
+export const SECTOR_ETFS_US: Record<string, string> = {
   XLK: '기술', XLF: '금융', XLE: '에너지', XLV: '헬스케어',
   XLI: '산업재', XLY: '경기소비재', XLP: '필수소비재', XLU: '유틸리티',
   XLB: '소재', XLRE: '리츠', XLC: '커뮤니케이션',
+}
+
+/**
+ * 한국 섹터 ETF. Yahoo에 밸류에이션이 아예 없다 — summaryDetail.trailingPE,
+ * topHoldings 둘 다 undefined로 확인됨(quoteSummary 실측). 그래서 모멘텀만 실측이고
+ * `sectorValuation`의 per/pbr/psr은 US·EU와 같은 경로를 태워도 전부 null로 채워진다.
+ * 그래도 "코스피 대비 이 섹터가 오르는가"는 실측으로 답할 수 있다 — 이전엔 그것도 없었다.
+ */
+export const SECTOR_ETFS_KR: Record<string, string> = {
+  '091160.KS': '반도체', '139270.KS': '금융', '227550.KS': '산업재',
+  '091180.KS': '자동차', '143860.KS': '헬스케어', '139250.KS': '에너지화학',
+  '305540.KS': '2차전지', '139290.KS': '경기소비재',
+}
+
+/**
+ * 유럽 섹터 ETF(iShares STOXX Europe 600, ICB 슈퍼섹터 기준). 미국 GICS 11개와
+ * 1:1로 안 맞는다 — 은행/금융서비스/보험이 나뉘어 있고 리츠에 해당하는 것이 없다.
+ * 모멘텀·밸류에이션 둘 다 미국과 같은 경로로 실측된다(quoteSummary에 PER 포함 확인됨).
+ */
+export const SECTOR_ETFS_EU: Record<string, string> = {
+  'EXV3.DE': '기술', 'EXV1.DE': '은행', 'EXH2.DE': '금융서비스', 'EXH5.DE': '보험',
+  'EXH1.DE': '에너지', 'EXV4.DE': '헬스케어', 'EXH4.DE': '산업재', 'EXH9.DE': '유틸리티',
+  'EXV6.DE': '소재', 'EXV2.DE': '통신', 'EXH7.DE': '경기소비재', 'EXH3.DE': '필수소비재',
+}
+
+export const SECTOR_ETFS: Record<string, string> = {
+  ...SECTOR_ETFS_US, ...SECTOR_ETFS_KR, ...SECTOR_ETFS_EU,
+}
+
+/**
+ * 채권 sleeve 후보. 전부 USD 표시 ETF다 — REGION_ETFS와 같은 이유다.
+ *
+ * **유럽 단독 소버린은 USD 표시 상품이 없다.** XETRA/암스테르담 상장분(IEGA·EUNH 등)은
+ * 전부 EUR 표시라 여기 섞으면 환율 효과가 빠진 수익률을 비교하게 된다. 그래서
+ * BWX(미국 외 선진국 국채, USD 무헤지)로 대신하고, 유럽 고유 금리는 이미 있는
+ * `regionMacro.EU.bond10y`(분트 10년물)로 본다. BWX는 유럽 비중이 가장 크지만
+ * 일본도 상당히 들어 있어 "유럽"이라고 부르면 안 된다.
+ */
+export const BOND_ETFS: { ticker: string; bucket: string; label: string }[] = [
+  { ticker: 'SHY', bucket: 'sovereign', label: '미국 국채 1-3년' },
+  { ticker: 'IEF', bucket: 'sovereign', label: '미국 국채 7-10년' },
+  { ticker: 'TLT', bucket: 'sovereign', label: '미국 국채 20년+' },
+  { ticker: 'BWX', bucket: 'sovereign', label: '선진국(미국 외) 국채, 무헤지' },
+  { ticker: 'TIP', bucket: 'inflation', label: '미국 물가연동채' },
+  { ticker: 'LQD', bucket: 'credit', label: '미국 IG 회사채' },
+  { ticker: 'HYG', bucket: 'credit', label: '미국 HY 회사채' },
+  { ticker: 'BKLN', bucket: 'credit', label: '시니어론(변동금리)' },
+  { ticker: 'EMB', bucket: 'em', label: '이머징 소버린(USD)' },
+  { ticker: 'EMLC', bucket: 'em', label: '이머징 로컬통화' },
+]
+
+/**
+ * 대체자산 sleeve 후보. 전부 USD 표시 상장상품이다.
+ *
+ * PE·사모대출은 비상장이라 실측할 방법이 없어 **상장 대리지표**를 쓴다 —
+ * PSP(상장 PE 운용사)와 BIZD(BDC)는 실제 사모 포트폴리오보다 변동성이 크고
+ * 주식과 상관이 훨씬 높다. 분산 근거로 쓰기 전에 `corrToEquity60d`를 반드시 확인해야 한다.
+ */
+export const ALT_ETFS: { ticker: string; bucket: string; label: string }[] = [
+  { ticker: 'GLD', bucket: 'precious', label: '금' },
+  { ticker: 'SLV', bucket: 'precious', label: '은' },
+  { ticker: 'DBB', bucket: 'industrial', label: '산업금속(비철)' },
+  { ticker: 'DBC', bucket: 'industrial', label: '종합 원자재' },
+  { ticker: 'PSP', bucket: 'private', label: '상장 PE(대리지표)' },
+  { ticker: 'BIZD', bucket: 'private', label: 'BDC 사모대출(대리지표)' },
+  { ticker: 'IGF', bucket: 'real', label: '글로벌 인프라' },
+  { ticker: 'VNQ', bucket: 'real', label: '미국 리츠' },
+  { ticker: 'REET', bucket: 'real', label: '글로벌 리츠' },
+]
+
+/** 채권 sleeve의 상대성과 기준. 미국 종합채권지수다. */
+export const BOND_BENCHMARK = 'AGG'
+
+/** 듀레이션 사다리. 짧은 것부터 긴 것까지 — 여기서 만기 축 판단이 나온다. */
+export const DURATION_LADDER = { short: 'SHY', intermediate: 'IEF', long: 'TLT' } as const
+
+const SLEEVE_TICKERS = [
+  ...BOND_ETFS.map((b) => b.ticker),
+  ...ALT_ETFS.map((a) => a.ticker),
+  BOND_BENCHMARK,
+]
+
+/** 섹터 ETF의 소속 지역. rel3m을 어느 지역 벤치마크로 잴지, 프롬프트에 무엇으로 표기할지 정한다. */
+export const SECTOR_REGION: Record<string, MarketCode> = {
+  ...Object.fromEntries(Object.keys(SECTOR_ETFS_US).map((k) => [k, 'US' as const])),
+  ...Object.fromEntries(Object.keys(SECTOR_ETFS_KR).map((k) => [k, 'KR' as const])),
+  ...Object.fromEntries(Object.keys(SECTOR_ETFS_EU).map((k) => [k, 'EU' as const])),
 }
 
 // 한국 지수는 Yahoo가 실패하면 네이버로 폴백한다.
@@ -60,7 +147,7 @@ const KR_FALLBACK: Record<string, string> = { '^KS11': 'KOSPI', '^KQ11': 'KOSDAQ
 const round4 = (n: number): number => Math.round(n * 10000) / 10000
 
 export async function collectPrices(): Promise<Record<string, Ohlcv[]>> {
-  const symbols = [...Object.keys(SYMBOLS), ...Object.keys(SECTOR_ETFS)]
+  const symbols = [...Object.keys(SYMBOLS), ...Object.keys(SECTOR_ETFS), ...SLEEVE_TICKERS]
   const out: Record<string, Ohlcv[]> = {}
   // 순차 수집. rate limit 회피가 속도보다 중요하다.
   for (const s of symbols) {
@@ -93,6 +180,11 @@ export async function collectPrices(): Promise<Record<string, Ohlcv[]>> {
 const last = (obs: { value: number | null }[]): number | null =>
   [...obs].reverse().find((o) => o.value !== null)?.value ?? null
 
+/** 미국 2년물 대비 정책금리 차(%p). 둘 중 하나라도 null이면 null — 결측을 0으로 읽지 않는다. */
+export function rateDiff(usDgs2: number | null, regionPolicy: number | null): number | null {
+  return usDgs2 !== null && regionPolicy !== null ? usDgs2 - regionPolicy : null
+}
+
 // 월간 시리즈의 전년동월 대비 변화율
 function yoy(obs: { value: number | null }[]): number | null {
   const v = obs.filter((o) => o.value !== null)
@@ -102,17 +194,53 @@ function yoy(obs: { value: number | null }[]): number | null {
   return yearAgo === 0 ? null : now / yearAgo - 1
 }
 
-export async function collectMacro(): Promise<MacroBlock> {
+type Obs = { date: string; value: number | null }
+
+/** 결측을 버리고 최근 n개만, 소수 3자리로. 화면에 그릴 시계열이라 정밀도가 더 필요 없다. */
+function toSeries(obs: Obs[] | null, n: number): { date: string; value: number }[] {
+  if (!obs) return []
+  return obs
+    .filter((o): o is { date: string; value: number } => o.value !== null && Number.isFinite(o.value))
+    .slice(-n)
+    .map((o) => ({ date: o.date, value: Math.round(o.value * 1000) / 1000 }))
+}
+
+/** 두 시계열을 날짜로 맞춰 뺀다. 곡선(장기−단기)을 만드는 데 쓴다. */
+function diffSeries(
+  a: { date: string; value: number }[],
+  b: { date: string; value: number }[],
+): { date: string; value: number }[] {
+  const bm = new Map(b.map((o) => [o.date, o.value]))
+  return a.flatMap((o) => {
+    const other = bm.get(o.date)
+    return other === undefined ? [] : [{ date: o.date, value: Math.round((o.value - other) * 1000) / 1000 }]
+  })
+}
+
+/** 월간 지수에서 전년동월비(%) 시계열. cpiYoY/coreCpiYoY가 이 형태다. */
+function yoySeries(obs: Obs[] | null, n: number): { date: string; value: number }[] {
+  const v = (obs ?? []).filter((o): o is { date: string; value: number } => o.value !== null)
+  const out: { date: string; value: number }[] = []
+  for (let i = 12; i < v.length; i++) {
+    const prev = v[i - 12].value
+    if (prev === 0) continue
+    out.push({ date: v[i].date, value: Math.round((v[i].value / prev - 1) * 100000) / 1000 })
+  }
+  return out.slice(-n)
+}
+
+export async function collectMacro(): Promise<{ macro: MacroBlock; series: MacroSeries }> {
   const empty: MacroBlock = {
     available: false, dgs2: null, dgs10: null, dgs3mo: null,
     cpiYoY: null, coreCpiYoY: null, unrate: null, hySpread: null,
+    igSpread: null, realYield10y: null, breakeven10y: null,
   }
   if (!hasFredKey()) {
     console.error('FRED_API_KEY 없음 — 매크로 블록을 건너뜁니다')
-    return empty
+    return { macro: empty, series: {} }
   }
   const start = new Date(Date.now() - 800 * 24 * 3600 * 1000).toISOString().slice(0, 10)
-  const [dgs2, dgs10, dgs3mo, cpi, core, unrate, hy] = await Promise.allSettled([
+  const [dgs2, dgs10, dgs3mo, cpi, core, unrate, hy, ig, real10, be10] = await Promise.allSettled([
     fetchFredSeries('DGS2', start),
     fetchFredSeries('DGS10', start),
     fetchFredSeries('DGS3MO', start),
@@ -120,17 +248,64 @@ export async function collectMacro(): Promise<MacroBlock> {
     fetchFredSeries('CPILFESL', start),
     fetchFredSeries('UNRATE', start),
     fetchFredSeries('BAMLH0A0HYM2', start),
+    fetchFredSeries('BAMLC0A0CM', start),
+    fetchFredSeries('DFII10', start),
+    fetchFredSeries('T10YIE', start),
   ])
-  const results = [dgs2, dgs10, dgs3mo, cpi, core, unrate, hy]
+  const results = [dgs2, dgs10, dgs3mo, cpi, core, unrate, hy, ig, real10, be10]
   for (const r of results) if (r.status === 'rejected') console.error(`FRED 시리즈 수집 실패: ${(r.reason as Error).message}`)
   const value = <T>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfilled' ? r.value : null)
   const anyOk = results.some((r) => r.status === 'fulfilled')
-  return {
+  const macro: MacroBlock = {
     available: anyOk,
     dgs2: last(value(dgs2) ?? []), dgs10: last(value(dgs10) ?? []), dgs3mo: last(value(dgs3mo) ?? []),
     cpiYoY: yoy(value(cpi) ?? []), coreCpiYoY: yoy(value(core) ?? []),
     unrate: last(value(unrate) ?? []), hySpread: last(value(hy) ?? []),
+    igSpread: last(value(ig) ?? []),
+    realYield10y: last(value(real10) ?? []), breakeven10y: last(value(be10) ?? []),
   }
+
+  // 화면이 근거 경로(features.macro.X)로 바로 찾을 수 있게 키를 필드명과 맞춘다.
+  // 일간 시리즈는 1년(260), 월간은 5년(60)이면 추이를 읽기에 충분하다.
+  const D = 260, M = 60
+  const s2 = toSeries(value(dgs2), D)
+  const s10 = toSeries(value(dgs10), D)
+  const s3m = toSeries(value(dgs3mo), D)
+  const series: MacroSeries = {
+    dgs2: s2,
+    dgs10: s10,
+    dgs3mo: s3m,
+    curve2s10s: diffSeries(s10, s2),
+    curve3m10y: diffSeries(s10, s3m),
+    hySpread: toSeries(value(hy), D),
+    igSpread: toSeries(value(ig), D),
+    realYield10y: toSeries(value(real10), D),
+    breakeven10y: toSeries(value(be10), D),
+    unrate: toSeries(value(unrate), M),
+    cpiYoY: yoySeries(value(cpi), M),
+    coreCpiYoY: yoySeries(value(core), M),
+  }
+  return { macro, series }
+}
+
+/**
+ * sleeve ETF의 분배수익률. 하나가 실패해도 나머지는 쓴다 —
+ * 수익률이 없으면 그 자산은 모멘텀만으로 판단하게 되고, 그 사실이 null로 드러난다.
+ */
+export async function collectSleeveYields(): Promise<Record<string, number | null>> {
+  const out: Record<string, number | null> = {}
+  for (const { ticker } of [...BOND_ETFS, ...ALT_ETFS]) {
+    try {
+      // Yahoo가 0.044699997처럼 부동소수점 noise를 섞어 준다. 반올림하지 않으면
+      // 그대로 프롬프트에 실려 모델이 "4.4699997%"를 인용한다.
+      const y = await fetchDistYield(ticker)
+      out[ticker] = y === null ? null : round4(y)
+    } catch (e) {
+      console.error(`분배수익률 수집 실패 ${ticker}: ${(e as Error).message}`)
+      out[ticker] = null
+    }
+  }
+  return out
 }
 
 function assetFeature(symbol: string, bars: Ohlcv[]): AssetFeature {
@@ -228,13 +403,27 @@ function lastWithDate(
   return { value: hit?.value ?? null, asOf: hit?.date ?? null }
 }
 
-export async function collectRegionMacro(): Promise<Partial<Record<MarketCode, RegionMacro>>> {
+export async function collectRegionMacro(): Promise<{
+  macro: Partial<Record<MarketCode, RegionMacro>>
+  series: MacroSeries
+}> {
+  const creditSeries: MacroSeries = {}
   const out: Partial<Record<MarketCode, RegionMacro>> = {}
   if (!hasFredKey()) {
     console.error('FRED_API_KEY 없음 — 지역 매크로를 건너뜁니다')
-    return out
+    return { macro: out, series: creditSeries }
   }
   const start = new Date(Date.now() - 800 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+
+  // rateDiffToUs2y의 기준값. collectMacro()도 같은 시리즈(DGS2)를 따로 받는데, 두 함수가
+  // runCollect()에서 Promise.all로 병렬 실행돼 서로의 결과를 못 본다 — 작은 시리즈 하나
+  // 중복 호출이 함수 간 의존성을 만드는 것보다 싸다.
+  let usDgs2: number | null = null
+  try {
+    usDgs2 = last(await fetchFredSeries('DGS2', start))
+  } catch (e) {
+    console.error(`rateDiffToUs2y용 미국 2년물 실패: ${(e as Error).message}`)
+  }
 
   for (const [code, cfg] of Object.entries(REGION_MACRO_SERIES) as [MarketCode, typeof REGION_MACRO_SERIES[MarketCode]][]) {
     const get = async (id?: string) => {
@@ -271,6 +460,9 @@ export async function collectRegionMacro(): Promise<Partial<Record<MarketCode, R
     if (cfg.credit) {
       try {
         const obs = (await fetchFredSeries(cfg.credit, start)).filter((o) => o.value !== null)
+        // 근거가 지역 신용스프레드를 인용하면 그 스프레드 자신의 추이를 그려야 한다.
+        // 시계열을 안 남기면 화면이 지역 ETF 가격을 대신 붙여 다른 값을 보여주게 된다.
+        creditSeries[`regionMacro.${code}.creditSpread`] = toSeries(obs, 260)
         const last = obs.at(-1)
         const prev = obs.at(-21)
         credit = {
@@ -290,10 +482,11 @@ export async function collectRegionMacro(): Promise<Partial<Record<MarketCode, R
       creditSpread: credit.value,
       creditSpreadAsOf: credit.asOf,
       creditSpread20dChg: credit.chg20d,
+      rateDiffToUs2y: rateDiff(usDgs2, policy.value),
       proxyNote: cfg.proxyNote ?? null,
     }
   }
-  return out
+  return { macro: out, series: creditSeries }
 }
 
 /**
@@ -368,9 +561,10 @@ export function buildFeatures(
   valuation: Partial<Record<MarketCode, RegionValuationRanked>> = {},
   regionMacro: Partial<Record<MarketCode, RegionMacro>> = {},
   sectorValuation: Partial<Record<string, RegionValuation>> = {},
+  sleeveYields: Record<string, number | null> = {},
 ): FeatureSet {
   const missing: string[] = []
-  const expected = [...Object.keys(SYMBOLS), ...Object.keys(SECTOR_ETFS)]
+  const expected = [...Object.keys(SYMBOLS), ...Object.keys(SECTOR_ETFS), ...SLEEVE_TICKERS]
   for (const s of expected) if (!prices[s] || prices[s].length === 0) missing.push(s)
   for (const code of MARKET_CODES) if (!valuation[code]) missing.push(`valuation:${code}`)
   if (!macro.available) {
@@ -378,6 +572,7 @@ export function buildFeatures(
   } else {
     const macroFields: (keyof MacroBlock)[] = [
       'dgs2', 'dgs10', 'dgs3mo', 'cpiYoY', 'coreCpiYoY', 'unrate', 'hySpread',
+      'igSpread', 'realYield10y', 'breakeven10y',
     ]
     for (const field of macroFields) if (macro[field] === null) missing.push(`fred:${field}`)
   }
@@ -418,6 +613,16 @@ export function buildFeatures(
     return r === undefined || r === null || spy3m === null ? null : r - spy3m
   }
 
+  // 섹터 rel3m은 자기 지역 벤치마크 대비다. US 섹터는 SPY 대비(기존과 동일),
+  // KR·EU 섹터는 EWY·VGK 대비 — 전부 SPY와 비교하면 "코스피 대비 반도체"가 아니라
+  // "미국 대비 반도체"가 되어 지역 내 로테이션 신호가 아니게 된다.
+  const sectorRel = (etf: string): number | null => {
+    const region = SECTOR_REGION[etf]
+    const bench3m = assets[REGION_ETFS[region]]?.ret3m ?? null
+    const r = assets[etf]?.ret3m
+    return r === undefined || r === null || bench3m === null ? null : r - bench3m
+  }
+
   // 지역 비교의 기준은 SPY가 아니라 ACWI다. SPY 기준으로 재면
   // "미국 대비"가 되어 미국 자신의 상대성과가 항상 0이 되고 비교가 성립하지 않는다.
   const bench1m = assets[REGION_BENCHMARK]?.ret1m ?? null
@@ -437,6 +642,56 @@ export function buildFeatures(
       rel3m: diff(f?.ret3m, bench3m),
     }
   })
+
+  // 주식과의 상관. 대체자산이 실제로 분산되는지를 가르는 유일한 실측값이다 —
+  // "금은 안전자산"류의 통념 대신 이 숫자로 판단하게 만드는 자리다.
+  const spyRets = (() => {
+    const c = closesOf(REGION_ETFS.US)
+    return c ? logReturns(c).slice(-60) : null
+  })()
+  const corrToEquity = (ticker: string): number | null => {
+    const c = closesOf(ticker)
+    if (!c || !spyRets) return null
+    return correlation(logReturns(c).slice(-60), spyRets)
+  }
+
+  const bondBench3m = assets[BOND_BENCHMARK]?.ret3m ?? null
+  const sleeveOf = (
+    spec: { ticker: string; bucket: string; label: string },
+    group: 'bond' | 'alt',
+  ): SleeveAsset => {
+    const f = assets[spec.ticker]
+    return {
+      ticker: spec.ticker,
+      group,
+      bucket: spec.bucket,
+      label: spec.label,
+      distYield: sleeveYields[spec.ticker] ?? null,
+      ret1m: f?.ret1m ?? null,
+      ret3m: f?.ret3m ?? null,
+      // 채권만 벤치마크(AGG) 대비로 잰다. 금을 채권지수와 비교하면 의미가 없다.
+      rel3m: group === 'bond' ? diff(f?.ret3m, bondBench3m) : null,
+      realizedVol20: f?.realizedVol20 ?? null,
+      corrToEquity60d: corrToEquity(spec.ticker),
+      distSma200: f?.distSma200 ?? null,
+    }
+  }
+  const sleeves: SleeveAsset[] = [
+    ...BOND_ETFS.map((b) => sleeveOf(b, 'bond')),
+    ...ALT_ETFS.map((a) => sleeveOf(a, 'alt')),
+  ]
+
+  const duration: DurationRead = {
+    shortYield: sleeveYields[DURATION_LADDER.short] ?? null,
+    intermediateYield: sleeveYields[DURATION_LADDER.intermediate] ?? null,
+    longYield: sleeveYields[DURATION_LADDER.long] ?? null,
+    longMinusShort3m: diff(
+      assets[DURATION_LADDER.long]?.ret3m,
+      assets[DURATION_LADDER.short]?.ret3m ?? null,
+    ),
+    longVol20: assets[DURATION_LADDER.long]?.realizedVol20 ?? null,
+    shortVol20: assets[DURATION_LADDER.short]?.realizedVol20 ?? null,
+  }
 
   return {
     date,
@@ -464,7 +719,7 @@ export function buildFeatures(
       regions,
       emVsDmExUs3m: diff(assets['EEM']?.ret3m, assets['EFA']?.ret3m ?? null),
       emVsAcwi3m: diff(assets['EEM']?.ret3m, bench3m),
-      sectors: Object.keys(SECTOR_ETFS).map((etf) => ({ etf, rel3m: rel(etf) })),
+      sectors: Object.keys(SECTOR_ETFS).map((etf) => ({ etf, region: SECTOR_REGION[etf], rel3m: sectorRel(etf) })),
     },
     valuation,
     regionMacro,
@@ -488,17 +743,56 @@ export function buildFeatures(
       return pairs
     })(),
     sectorValuation,
+    sleeves,
+    duration,
     foreignRatioSamsung,
     missing,
   }
 }
 
+/**
+ * 근거 경로 → 그릴 심볼. `features.sleeves[7]`처럼 **인덱스로 된 경로**는
+ * 배열 순서를 알아야 티커를 알 수 있는데, 화면은 features를 통째로 받지 않는다.
+ * 그래서 수집 시점에 features에서 직접 만들어 스냅샷에 실어 보낸다 —
+ * 순서를 웹에 복제하면 배열이 바뀔 때 조용히 엉뚱한 차트가 붙는다.
+ *
+ * 레짐 지표는 인덱스가 아니라 이름이지만, 어느 심볼이 그 값의 출처인지는
+ * 여기 한 곳에만 적어 둔다.
+ */
+export function buildChartIndex(features: FeatureSet): Record<string, string> {
+  const idx: Record<string, string> = {
+    'features.regime.vixLevel': '^VIX',
+    'features.regime.vixTerm': '^VIX3M',
+    'features.regime.usdkrw': 'KRW=X',
+    'features.regime.usdkrwChange20d': 'KRW=X',
+    'features.regime.usdjpy': 'JPY=X',
+    'features.regime.usdjpyChange20d': 'JPY=X',
+    'features.regime.eurusd': 'EURUSD=X',
+    'features.regime.eurusdChange20d': 'EURUSD=X',
+    'features.regime.dxyChange20d': 'DX-Y.NYB',
+    // breadth는 RSP/SPY 비율의 이격이라 어느 한 종목의 가격이 아니다. 넣지 않는다.
+    'features.duration.shortYield': DURATION_LADDER.short,
+    'features.duration.shortVol20': DURATION_LADDER.short,
+    'features.duration.intermediateYield': DURATION_LADDER.intermediate,
+    'features.duration.longYield': DURATION_LADDER.long,
+    'features.duration.longVol20': DURATION_LADDER.long,
+    'features.duration.longMinusShort3m': DURATION_LADDER.long,
+  }
+  features.sleeves.forEach((s, i) => { idx[`features.sleeves[${i}]`] = s.ticker })
+  features.relative.sectors.forEach((s, i) => { idx[`features.relative.sectors[${i}]`] = s.etf })
+  features.relative.regions.forEach((r, i) => { idx[`features.relative.regions[${i}]`] = r.etf })
+  return idx
+}
+
 export async function runCollect(): Promise<void> {
   const date = kstDate()
-  const [prices, macro, valuation, regionMacro, sectorValuation] = await Promise.all([
+  const [prices, macroResult, valuation, regionMacroResult, sectorValuation, sleeveYields] = await Promise.all([
     collectPrices(), collectMacro(), collectRegionValuations(),
-    collectRegionMacro(), collectSectorValuations(),
+    collectRegionMacro(), collectSectorValuations(), collectSleeveYields(),
   ])
+
+  const macro = macroResult.macro
+  const regionMacro = regionMacroResult.macro
 
   let foreignRatio: number | null = null
   try {
@@ -540,11 +834,23 @@ export async function runCollect(): Promise<void> {
   }
 
   const features = buildFeatures(
-    prices, macro, date, foreignRatio, ranked, regionMacro, sectorValuation,
+    prices, macro, date, foreignRatio, ranked, regionMacro, sectorValuation, sleeveYields,
   )
   await upsertSnapshots([
     { kind: 'prices', date, payload: trimmed },
-    { kind: 'macro', date, payload: macro },
+    // 스칼라만이 아니라 시계열도 함께 싣는다 — 화면이 "실질금리 2.39%"의 추이를 그릴 근거다.
+    // 화면이 근거 옆에 차트를 그리는 데 필요한 것 전부가 여기 있다.
+    // features는 비공개라 anon이 못 읽으므로, 그릴 수 있는 것만 골라 여기 싣는다.
+    {
+      kind: 'macro',
+      date,
+      payload: {
+        ...macro,
+        series: { ...macroResult.series, ...regionMacroResult.series },
+        chartIndex: buildChartIndex(features),
+        regionCorr: features.regionCorr,
+      },
+    },
     { kind: 'features', date, payload: features },
   ])
 
